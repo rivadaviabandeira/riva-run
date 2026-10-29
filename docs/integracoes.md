@@ -1,21 +1,28 @@
-# Integrações de corrida
+# Integração de corrida — Strava
 
-## Ordem
-1. Strava API: primeira integração a implementar.
-2. Garmin Health: depende de elegibilidade, aprovação e termos da plataforma.
-3. Zepp/Amazfit: confirmar disponibilidade e permissões da API oficial.
+O Riva Run terá **somente integração com o Strava** para importar atividades no MVP. Não serão implementadas integrações diretas com Garmin, Amazfit/Zepp ou outros provedores.
 
-## Regras
-- O atleta autoriza o acesso via OAuth quando disponível.
-- Tokens ficam somente no servidor, nunca no app nem no Git.
-- Atividades usam ID externo único por provedor para impedir quilometragem e pontos duplicados.
-- Reenvios e atualizações devem ser idempotentes.
-- Respeitar revogação, exclusão, privacidade e escopos autorizados.
-- O tênis pode não vir nos dados externos: permitir associação manual pós-importação ou tênis padrão configurável.
-- Não pedir senhas Garmin/Zepp nem usar scraping.
+## Fluxo previsto
+1. Participante autenticado inicia a autorização OAuth do Strava.
+2. O backend gera um estado aleatório, de uso único e com validade curta.
+3. O atleta autoriza os escopos necessários no Strava.
+4. O callback valida o estado, troca o código por tokens e armazena credenciais exclusivamente no servidor.
+5. Webhooks sinalizam criação, atualização e exclusão de atividades.
+6. Um worker busca os detalhes da atividade e faz upsert/delete por ID externo, impedindo duplicidades.
+7. A atividade validada entra nos cálculos de desafios e pontos; o participante pode associar um tênis cadastrado.
 
-## Garmin e Amazfit
-Relógios podem sincronizar para o Strava se o próprio atleta configurar essa ligação nos serviços suportados. Isso não equivale a integração direta oficial com cada fabricante. A integração direta será considerada apenas após confirmar acesso autorizado às APIs e condições de uso.
+## Segurança e consistência
+- Nunca solicitar ou armazenar a senha do Strava.
+- Nunca expor STRAVA_CLIENT_SECRET, SUPABASE_SERVICE_ROLE_KEY ou tokens no app ou no Git.
+- Pedir somente os escopos necessários e explicar a finalidade ao participante.
+- Tratar criação, atualização, exclusão, revogação e repetição de webhook.
+- Renovar tokens expirados no backend e lidar com limites de API.
+- Validar tipo, horário, distância, proprietário e regras do desafio antes de pontuar.
+- Não considerar uma atividade mais de uma vez; a chave única é provedor + ID externo.
+- O tênis usado pode não ser informado pelo Strava; permitir associação manual.
+
+## Situação atual
+O repositório contém a migration inicial, a função OAuth e a função de recepção de webhook. Ainda falta o worker que consome eventos e sincroniza atividades reais, além da implantação, testes, configuração de OAuth e revisão de segurança. Portanto, a integração ainda não está ativa.
 
 ## Pontuação
-Calcular pontos e fechamento de desafios no backend. Validar tipo de atividade, data, distância, duplicidade e regras do desafio antes de creditar pontos.
+A pontuação e o ranking devem ser calculados no backend a partir de atividades validadas e regras publicadas do desafio. O cliente não pode atribuir pontos diretamente.
