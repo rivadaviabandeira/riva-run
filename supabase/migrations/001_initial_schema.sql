@@ -198,3 +198,23 @@ create policy "Users view task progress" on public.task_completions
 for select to authenticated using (auth.uid() = user_id);
 -- Writes to OAuth state, tokens, webhook events, activities and scoring are server-only via service role.
 -- Do not create client policies for strava_connections, strava_oauth_states or strava_webhook_events.
+
+
+-- Prevent participants from promoting themselves to administrator through profile updates.
+create or replace function public.prevent_self_role_change()
+returns trigger language plpgsql security definer set search_path = public
+as $$
+begin
+  if old.role is distinct from new.role and auth.uid() is not null then
+    raise exception 'Somente operações administrativas no servidor podem alterar o papel';
+  end if;
+  return new;
+end;
+$$;
+create trigger profiles_role_guard before update of role on public.profiles
+for each row execute function public.prevent_self_role_change();
+
+-- Clients may only associate a shoe to their own imported activity, not alter distance,
+-- owner, status, timestamp or external identifiers.
+revoke update on public.activities from authenticated;
+grant update (shoe_id) on public.activities to authenticated;
