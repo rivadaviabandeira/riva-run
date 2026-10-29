@@ -8,10 +8,10 @@ Aplicativo de corrida com desafios, pontuação, ranking e controle de quilometr
 - Desafios semanais e mensais, tarefas e pontos.
 - Ranking: 1º–3º dourado, 4º–10º azul, 11º–20º verde, 21º+ cinza.
 - Pódio com os três primeiros e o tênis mais usado por distância no desafio.
-- Strava como primeira integração planejada; Garmin e Amazfit/Zepp serão avaliados com suas APIs oficiais.
+- **Única integração de atividades prevista: Strava**, via OAuth e sincronização no servidor.
 
 ## Estado
-Protótipo inicial em construção. Nenhuma conexão de relógio, autenticação ou dado real está ativo ainda.
+Protótipo de interface e primeiro esqueleto de backend versionados. O backend ainda precisa ser configurado e implantado no Supabase; OAuth, importação real, painel administrativo e cálculo final de pontos ainda não estão ativos em produção.
 
 ## Rodar localmente
 Requer Node.js LTS.
@@ -21,16 +21,15 @@ npm install
 npx expo start
 ```
 
-## Integrações
-- Strava via OAuth e sincronização no servidor.
-- Garmin Health depende de elegibilidade e aprovação.
-- Zepp/Amazfit depende da disponibilidade e permissões oficiais.
-- Nunca guardar tokens privados no app cliente ou no Git.
-- Atividades precisam de identificador único para impedir pontos e quilômetros duplicados.
+## Backend
+- Esquema inicial e políticas RLS: supabase/migrations/001_initial_schema.sql.
+- OAuth Strava: supabase/functions/strava-auth.
+- Recepção de webhooks Strava: supabase/functions/strava-webhook.
+- Instruções de configuração: supabase/README.md.
 
-## Próximas etapas
-1. Criar a interface do app.
-2. Configurar autenticação e banco de dados.
-3. Implementar Strava OAuth e importação idempotente.
-4. Criar painel administrativo web.
-5. Validar Garmin e Amazfit/Zepp.
+## Regras essenciais
+- Nunca guardar chaves privadas ou tokens OAuth no app cliente ou no Git.
+- Impedir importação duplicada por ID externo da atividade.
+- Associar manualmente um tênis após a importação, caso o Strava não forneça essa informação.
+- Validar tipo de atividade, data, distância e regras do desafio no servidor antes de pontuar.
+- Nenhuma integração direta com Garmin, Amazfit ou outros serviços está no escopo.
