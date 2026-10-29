@@ -1,0 +1,10 @@
+{
+  "expo": {
+    "name":"Riva Run","slug":"riva-run","scheme":"rivarun","version":"0.1.0",
+    "orientation":"portrait","userInterfaceStyle":"dark","newArchEnabled":true,
+    "plugins":["expo-router"],"experiments":{"typedRoutes":true},
+    "ios":{"supportsTablet":true,"bundleIdentifier":"br.com.rivarun.app"},
+    "android":{"package":"br.com.rivarun.app"},
+    "web":{"bundler":"metro"}
+  }
+}
