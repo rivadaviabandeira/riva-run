@@ -22,7 +22,7 @@ O Riva Run terá **somente integração com o Strava** para importar atividades 
 - O tênis usado pode não ser informado pelo Strava; permitir associação manual.
 
 ## Situação atual
-O repositório contém a migration inicial, a função OAuth e a função de recepção de webhook. Ainda falta o worker que consome eventos e sincroniza atividades reais, além da implantação, testes, configuração de OAuth e revisão de segurança. Portanto, a integração ainda não está ativa.
+O repositório contém a migration inicial, a função OAuth, a função de recepção de webhook e um worker inicial que renova tokens e importa/atualiza/exclui atividades. Ainda falta implantação, testes de ponta a ponta, configuração de OAuth e revisão de segurança. Portanto, a integração ainda não está ativa.
 
 ## Pontuação
 A pontuação e o ranking devem ser calculados no backend a partir de atividades validadas e regras publicadas do desafio. O cliente não pode atribuir pontos diretamente.
