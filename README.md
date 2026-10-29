@@ -25,6 +25,7 @@ npx expo start
 - Esquema inicial e políticas RLS: supabase/migrations/001_initial_schema.sql.
 - OAuth Strava: supabase/functions/strava-auth.
 - Recepção de webhooks Strava: supabase/functions/strava-webhook.
+- Worker de importação/atualização/exclusão de atividades: supabase/functions/strava-sync.
 - Instruções de configuração: supabase/README.md.
 
 ## Regras essenciais
