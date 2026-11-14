@@ -6,15 +6,15 @@ function Metric({label,value}:{label:string;value:string}) {
 }
 export default function HomeScreen() {
  return <ScrollView style={s.screen} contentContainerStyle={s.content}>
-  <View style={s.header}><View><Text style={s.kicker}>SEU TREINO. SEU RITMO.</Text><Text style={s.title}>Riva <Text style={{color:green}}>Run</Text></Text></View><View style={s.avatar}><Ionicons name="person-outline" size={22} color={green}/></View></View>
+  <View style={s.header}><View><Text style={s.kicker}>CORRA NO SEU RITMO</Text><Text style={s.title}>Pace<Text style={{color:green}}>Hub</Text></Text></View><View style={s.avatar}><Ionicons name="person-outline" size={22} color={green}/></View></View>
   <View style={s.hero}><View style={s.heroTop}><View style={s.dot}/><Text style={s.eyebrow}>RESUMO DA SEMANA</Text></View><Text style={s.km}>24,8 <Text style={s.unit}>km</Text></Text><Text style={s.muted}>quilômetros registrados · dados demonstrativos</Text><View style={s.track}><View style={s.fill}/></View><View style={s.between}><Text style={s.muted}>Meta semanal: 30 km</Text><Text style={s.greenText}>83%</Text></View></View>
   <View style={s.metrics}><Metric label="PONTOS" value="180"/><Metric label="CORRIDAS" value="4"/><Metric label="TÊNIS" value="2/5"/></View>
   <View style={s.between}><Text style={s.section}>Desafio em destaque</Text><Text style={s.greenText}>SEMANAL</Text></View>
   <View style={s.card}><View style={s.icon}><Ionicons name="flash-outline" size={22} color={green}/></View><View style={{flex:1}}><Text style={s.cardTitle}>Semana em movimento</Text><Text style={s.muted}>Meta de 30 km · termina domingo</Text><View style={s.track}><View style={s.fill}/></View></View></View>
-  <Text style={s.section}>Conecte seu relógio</Text>
-  <View style={s.card}><View style={s.icon}><Ionicons name="sync-outline" size={22} color={green}/></View><View style={{flex:1}}><Text style={s.cardTitle}>Strava</Text><Text style={s.muted}>Primeira integração planejada. A conexão ainda não está ativa.</Text></View></View>
-  <View style={s.card}><View style={s.icon}><Ionicons name="watch-outline" size={22} color={green}/></View><View style={{flex:1}}><Text style={s.cardTitle}>Garmin e Amazfit</Text><Text style={s.muted}>Integrações oficiais serão avaliadas.</Text></View></View>
-  <Text style={s.footnote}>Protótipo visual · nenhuma atividade real foi importada.</Text>
+  <Text style={s.section}>Sincronize suas corridas</Text>
+  <View style={s.card}><View style={s.icon}><Ionicons name="sync-outline" size={22} color={green}/></View><View style={{flex:1}}><Text style={s.cardTitle}>Strava</Text><Text style={s.muted}>Integração planejada. A conexão ainda não está ativa.</Text></View></View>
+  <View style={s.card}><View style={s.icon}><Ionicons name="bag-outline" size={22} color={green}/></View><View style={{flex:1}}><Text style={s.cardTitle}>Conheça a PaceHub Store</Text><Text style={s.muted}>Meias de corrida, produtos próprios e marcas parceiras.</Text></View></View>
+  <Text style={s.footnote}>Protótipo visual · dados demonstrativos, sem sincronização real.</Text>
  </ScrollView>;
 }
 const s=StyleSheet.create({
