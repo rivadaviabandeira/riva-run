@@ -54,12 +54,14 @@ export default function ProfileScreen() {
               .join("")}
           </Text>
         </View>
-        <View style={{ flex: 1 }}>
+        <View style={styles.identity}>
           <Text style={styles.name}>{profile.name}</Text>
-          <Muted>
+          <Text style={styles.handle}>
             {profile.handle} · {profile.city}
-          </Muted>
-          <Muted>No PaceHub desde {formatShortDate(profile.joinedAt)}</Muted>
+          </Text>
+          <Text style={styles.since}>
+            No PaceHub desde {formatShortDate(profile.joinedAt)}
+          </Text>
         </View>
         <Tag label={`NÍVEL ${stats.level.level}`} color={palette.gold} />
       </Card>
@@ -291,18 +293,23 @@ export default function ProfileScreen() {
 
 const styles = StyleSheet.create({
   topBar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  topTitle: { color: palette.text, fontSize: 15, fontWeight: "900" },
-  profile: { flexDirection: "row", alignItems: "center", gap: 12 },
+  topTitle: { color: palette.text, fontSize: 17, fontWeight: "900" },
+  profile: { flexDirection: "row", alignItems: "center", gap: 14 },
   avatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 18,
+    width: 64,
+    height: 64,
+    borderRadius: 22,
     backgroundColor: "#263522",
+    borderWidth: 1,
+    borderColor: "#3A4A33",
     alignItems: "center",
     justifyContent: "center",
   },
-  avatarText: { color: palette.green, fontSize: 16, fontWeight: "900" },
-  name: { color: palette.text, fontSize: 16, fontWeight: "900" },
+  avatarText: { color: palette.green, fontSize: 21, fontWeight: "900" },
+  identity: { flex: 1, gap: 3 },
+  name: { color: palette.text, fontSize: 24, fontWeight: "900", flexShrink: 1 },
+  handle: { color: palette.green, fontSize: 12, fontWeight: "800" },
+  since: { color: palette.faint, fontSize: 10 },
   rowBetween: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 },
   row: { flexDirection: "row", alignItems: "center", gap: 11, flex: 1 },
   cardTitle: { color: palette.text, fontSize: 13, fontWeight: "900" },
