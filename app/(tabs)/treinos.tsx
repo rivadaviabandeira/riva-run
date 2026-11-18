@@ -41,9 +41,13 @@ const REVIEW_LABEL = { ok: "Carga liberada", atencao: "Revisar", risco: "Ajustar
 
 export default function TrainingScreen() {
   const { athletes, trainingSessions, actions } = useData();
-  const [athleteId, setAthleteId] = useState(() => athletes[0]?.id ?? "");
+  const me = athletes.find((item) => item.isMe);
+  // Abre no atleta logado; só cai no primeiro da lista se não houver "você" definido.
+  const [athleteId, setAthleteId] = useState(() => me?.id ?? athletes[0]?.id ?? "");
 
-  const athlete = athletes.find((item) => item.id === athleteId) ?? athletes[0];
+  // O fallback em `me` cobre o caso de os atletas chegarem depois do primeiro render.
+  const athlete = athletes.find((item) => item.id === athleteId) ?? me ?? athletes[0];
+  const isViewingOwnPlan = Boolean(athlete && me && athlete.id === me.id);
 
   const week = useMemo(
     () => sessionsOfWeek(trainingSessions.filter((session) => session.athleteId === athlete?.id)),
@@ -113,6 +117,26 @@ export default function TrainingScreen() {
           );
         })}
       </ScrollView>
+
+      {athlete && me && !isViewingOwnPlan ? (
+        <View style={styles.planBanner}>
+          <Ionicons name="eye-outline" size={15} color={palette.gold} />
+          <Text style={styles.planBannerText}>
+            Você está vendo o plano de{" "}
+            <Text style={styles.planBannerName}>{athlete.name}</Text> — não o seu.
+          </Text>
+          {me ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Voltar para o meu plano"
+              hitSlop={8}
+              onPress={() => setAthleteId(me.id)}
+            >
+              <Text style={styles.planBannerAction}>MEU PLANO</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
 
       {athlete && review ? (
         <>
@@ -207,8 +231,7 @@ export default function TrainingScreen() {
                 <Text style={styles.dayLabel}>{day.label.toUpperCase()}</Text>
                 {day.sessions.map((session) => {
                   const type = sessionType(session.typeId);
-                  const currentAthleteId = athletes.find((a) => a.isMe)?.id ?? "";
-                  const isOwnSession = session.athleteId === currentAthleteId;
+                  const isOwnSession = session.athleteId === me?.id;
                   return (
                     <Card key={session.id} style={styles.session}>
                       <View style={styles.sessionRow}>
@@ -301,6 +324,20 @@ const styles = StyleSheet.create({
   chipAvatarText: { color: palette.green, fontSize: 10, fontWeight: "900" },
   chipName: { color: palette.text, fontSize: 11, fontWeight: "900" },
   chipMeta: { color: palette.faint, fontSize: 8, fontWeight: "800", letterSpacing: 0.6 },
+  planBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: `${palette.gold}55`,
+    backgroundColor: "#241F14",
+  },
+  planBannerText: { color: "#E3DCC8", fontSize: 10, lineHeight: 15, flex: 1 },
+  planBannerName: { color: palette.text, fontWeight: "900" },
+  planBannerAction: { color: palette.gold, fontSize: 9, fontWeight: "900", letterSpacing: 0.8 },
   athlete: { backgroundColor: palette.cardAlt, borderColor: palette.lineStrong },
   athleteName: { color: palette.text, fontSize: 17, fontWeight: "900" },
   rowBetween: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 },

@@ -80,10 +80,14 @@ export default function HomeScreen() {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Abrir meu perfil"
+          accessibilityHint="Abre a tela de perfil, com conexões e dados da conta"
           onPress={() => router.push("/perfil")}
-          style={styles.avatar}
+          style={styles.profileButton}
         >
-          <Text style={styles.avatarText}>{initials(profile.name)}</Text>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>{initials(profile.name)}</Text>
+          </View>
+          <Text style={styles.profileLabel}>PERFIL</Text>
         </Pressable>
       </View>
 
@@ -283,6 +287,13 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   title: { color: palette.text, fontSize: 32, fontWeight: "900", marginTop: 2 },
+  profileButton: { alignItems: "center", gap: 4 },
+  profileLabel: {
+    color: palette.faint,
+    fontSize: 8,
+    fontWeight: "900",
+    letterSpacing: 0.9,
+  },
   avatar: {
     width: 44,
     height: 44,
