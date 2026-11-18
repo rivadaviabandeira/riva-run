@@ -85,7 +85,8 @@ try {
   await db.exec(readMigration("002_gamification.sql"));
   await db.exec(readMigration("003_pacestore_rpcs.sql"));
   await db.exec(readMigration("004_training_plans.sql"));
-  check("001 + 002 + 003 + 004 aplicam sem erro", true);
+  await db.exec(readMigration("005_training_done_rpc.sql"));
+  check("001 + 002 + 003 + 004 + 005 aplicam sem erro", true);
 } catch (error) {
   check("001 + 002 + 003 + 004 aplicam sem erro", false, firstLine(error));
   console.error(error);
@@ -941,6 +942,121 @@ check(
   "configuração de PP por km = 1",
   Number(await scalar("select value from public.app_settings where key = 'pp_per_km'")) === 1,
 );
+
+// ------------------------------------------------------------------ --
+// Atleta marca a própria sessão como concluída (005)
+// ------------------------------------------------------------------ --
+await logout();
+
+check(
+  "005 aplica sem erro: função mark_training_session_done existe",
+  (await scalar("select exists(select 1 from pg_proc where proname = 'mark_training_session_done')")) === true,
+);
+
+const callDoneRpc = async (sessionId) => (await query("select * from public.mark_training_session_done($1)", [sessionId]))[0] ?? null;
+
+const weekMonday = new Date();
+weekMonday.setHours(0, 0, 0, 0);
+weekMonday.setDate(weekMonday.getDate() - ((weekMonday.getDay() + 6) % 7));
+const expectedSessionDate = new Date(weekMonday.getTime() + 5 * 86400000);
+
+// Re-clim como treinador para criar uma sessão adicional que a seção anterior
+// não tocou (a sessão SESSION_LEVE já existe e já foi lida pelo atleta).
+const SESSION_EXTRA = "a2000000-0000-0000-0000-000000000004";
+await loginAs(USER_COACH);
+await expectOk(
+  "treinador publica uma terceira sessão para o atleta",
+  `insert into public.training_sessions
+     (id, plan_id, athlete_id, coach_id, scheduled_date, type_id, distance_km, target_pace_s)
+   values ('${SESSION_EXTRA}', '${PLAN_MAIN}', '${USER_ATHLETE}', '${USER_COACH}', ${WEEK} + 5, 'tempo', 7.0, 320)`,
+);
+
+// --- caminho feliz -------------------------------------------------
+await loginAs(USER_ATHLETE);
+const done = await callDoneRpc(SESSION_EXTRA);
+check(
+  "RPC marca a própria sessão como concluída",
+  done != null &&
+    done.session_id === SESSION_EXTRA &&
+    done.actual_pace_s === 320 &&
+    (() => {
+      const d = new Date(done.scheduled_date);
+      return d.getFullYear() === expectedSessionDate.getFullYear() &&
+        d.getMonth() === expectedSessionDate.getMonth() &&
+        d.getDate() === expectedSessionDate.getDate();
+    })(),
+  JSON.stringify(done),
+);
+
+// O retorno é o registro da sessão após o UPDATE, com o pace alvo para o app
+check(
+  "sessão consta como concluída no banco após o RPC",
+  (await scalar("select done from public.training_sessions where id = $1", [SESSION_EXTRA])) === true,
+);
+check(
+  "done_at foi preenchido",
+  (await scalar("select done_at is not null from public.training_sessions where id = $1", [SESSION_EXTRA])) === true,
+);
+
+// --- já concluído -------------------------------------------------
+await expectError(
+  "RPC recusa sessão já concluída",
+  "select * from public.mark_training_session_done($1)",
+  [SESSION_EXTRA],
+  "já foi concluída",
+);
+
+// --- sessão de outro atleta ----------------------------------------
+await loginAs(USER_B);
+await expectError(
+  "RPC recusa sessão de outro atleta",
+  "select * from public.mark_training_session_done($1)",
+  [SESSION_LEVE],
+  "Só o atleta",
+);
+
+// --- sessão inexistente -------------------------------------------
+await expectError(
+  "RPC recusa sessão inexistente",
+  "select * from public.mark_training_session_done($1)",
+  ["00000000-0000-0000-0000-000000000000"],
+  "não encontrada",
+);
+
+// --- inválido -----------------------------------------------------
+await expectError(
+  "RPC recusa session_id nulo",
+  "select * from public.mark_training_session_done($1)",
+  [null],
+  "ID da sessão é obrigatório",
+);
+
+// --- quem não é o atleta não executa ------------------------------
+await loginAs(USER_B);
+await expectError(
+  "corredor sem vínculo não marca treino alheio",
+  "select * from public.mark_training_session_done($1)",
+  [SESSION_EXTRA],
+  "Só o atleta",
+);
+
+await loginAs(USER_COACH);
+await expectError(
+  "treinador não marca treino do atleta",
+  "select * from public.mark_training_session_done($1)",
+  [SESSION_LEVE],
+  "Só o atleta",
+);
+
+// --- anon não executa ---------------------------------------------
+await db.exec("set role anon;");
+await expectError(
+  "anon não executa o RPC",
+  "select * from public.mark_training_session_done($1)",
+  [SESSION_EXTRA],
+  "permission denied",
+);
+await db.exec("reset role");
 
 const failures = results.filter((result) => !result.ok);
 console.log(`\n${results.length - failures.length}/${results.length} verificações passaram.`);
