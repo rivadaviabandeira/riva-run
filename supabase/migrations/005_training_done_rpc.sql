@@ -57,9 +57,9 @@ begin
    where id = p_session_id;
 
   return query
-    select s.id, s.scheduled_date, s.target_pace_s
-      from public.training_sessions s
-     where s.id = p_session_id;
+    select r.id, r.scheduled_date, r.target_pace_s
+      from public.training_sessions r
+     where r.id = p_session_id;
 end;
 $$;
 

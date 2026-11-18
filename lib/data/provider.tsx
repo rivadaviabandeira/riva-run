@@ -57,6 +57,7 @@ import type {
   Shoe,
   StravaState,
 } from "./types";
+import { markTrainingSessionDoneOnServer, trainingBackendEnabled } from "../api/training";
 
 export type ActionResult = { ok: boolean; message: string };
 export type SyncResult = ActionResult & { imported: number; duplicates: number };
@@ -107,7 +108,7 @@ type Actions = {
   buildWeekPlanFor: (athleteId: string) => ActionResult;
   addTrainingSession: (input: NewSessionInput) => ActionResult;
   removeTrainingSession: (sessionId: string) => ActionResult;
-  toggleTrainingDone: (sessionId: string) => ActionResult;
+  toggleTrainingDone: (sessionId: string) => Promise<ActionResult>;
   resetDemo: () => void;
 };
 
@@ -512,20 +513,56 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return { ok: true, message: "Treino removido do plano." };
   }, []);
 
-  const toggleTrainingDone = useCallback((sessionId: string): ActionResult => {
-    let done = false;
-    setState((current) => ({
-      ...current,
-      sessions: current.sessions.map((session) => {
-        if (session.id !== sessionId) return session;
-        done = !session.done;
-        return { ...session, done: !session.done };
-      }),
-    }));
-    return done
-      ? { ok: true, message: "Treino marcado como concluído." }
-      : { ok: false, message: "Treino reaberto no plano." };
-  }, []);
+  const currentAthleteId = state.athletes.find((item) => item.isMe)?.id ?? "";
+
+  const toggleTrainingDone = useCallback(
+    async (sessionId: string): Promise<ActionResult> => {
+      // Quem clica deve ser o atleta da sessão. Em produção, currentAthleteId vem do
+      // auth.uid(); em demo, do atleta marcado como "você". Se não for o atleta, o
+      // botão nem aparece - aqui serve de última linha de defesa e não tenta a RPC.
+      const session = state.sessions.find((item) => item.id === sessionId);
+      if (!session || session.athleteId !== currentAthleteId) {
+        return { ok: false, message: "Essa sessão não é sua." };
+      }
+
+      // Backend real + id UUID: a RPC decide, inclusive rejeitando se já concluído ou
+      // se quem clica não é o atleta da sessão.
+      if (trainingBackendEnabled() && isUuid(sessionId)) {
+        const remote = await markTrainingSessionDoneOnServer(sessionId);
+        if (!remote.ok) return { ok: false, message: remote.message };
+        // Sucesso server: atualiza o cache local pelo id somente com o que o servidor
+        // devolveu - o servidor é a fonte de verdade, nunca lemos session.done local
+        // para decidir o retorno.
+        setState((current) => ({
+          ...current,
+          sessions: current.sessions.map((item) =>
+            item.id === sessionId
+              ? {
+                  ...item,
+                  done: true,
+                  ...(remote.scheduledDate ? { date: remote.scheduledDate } : {}),
+                  ...(remote.actualPaceS != null ? { targetPaceS: remote.actualPaceS } : {}),
+                }
+              : item,
+          ),
+        }));
+        return { ok: true, message: remote.message };
+      }
+
+      // Demo: ids como ts-ath-lucas-1, toggle puramente local.
+      const next = !session.done;
+      setState((current) => ({
+        ...current,
+        sessions: current.sessions.map((item) =>
+          item.id === sessionId ? { ...item, done: next } : item,
+        ),
+      }));
+      return next
+        ? { ok: true, message: "Treino marcado como concluído." }
+        : { ok: false, message: "Treino reaberto no plano." };
+    },
+    [state.sessions, currentAthleteId],
+  );
 
   const joinChallenge = useCallback((challengeId: string): ActionResult => {
     let joined = false;

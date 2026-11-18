@@ -207,6 +207,8 @@ export default function TrainingScreen() {
                 <Text style={styles.dayLabel}>{day.label.toUpperCase()}</Text>
                 {day.sessions.map((session) => {
                   const type = sessionType(session.typeId);
+                  const currentAthleteId = athletes.find((a) => a.isMe)?.id ?? "";
+                  const isOwnSession = session.athleteId === currentAthleteId;
                   return (
                     <Card key={session.id} style={styles.session}>
                       <View style={styles.sessionRow}>
@@ -218,26 +220,31 @@ export default function TrainingScreen() {
                             /km
                           </Muted>
                         </View>
-                        <Pressable
-                          accessibilityRole="button"
-                          accessibilityLabel={
-                            session.done ? "Reabrir treino" : "Marcar treino como concluído"
-                          }
-                          hitSlop={8}
-                          onPress={() => actions.toggleTrainingDone(session.id)}
-                          style={[styles.check, session.done && styles.checkDone]}
-                        >
+                        {isOwnSession && (
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel={
+                              session.done ? "Reabrir treino" : "Marcar treino como concluído"
+                            }
+                            hitSlop={8}
+                            onPress={async () => {
+                              const result = await actions.toggleTrainingDone(session.id);
+                              Alert.alert(result.ok ? "Treino atualizado" : "Não foi possível atualizar", result.message);
+                            }}
+                            style={[styles.check, session.done && styles.checkDone]}
+                          >
                           <Ionicons
                             name={session.done ? "checkmark" : "ellipse-outline"}
                             size={17}
                             color={session.done ? "#10170A" : palette.muted}
                           />
                         </Pressable>
+                        )}
                       </View>
                       <Text style={styles.note}>{session.note}</Text>
                       <View style={styles.sessionFooter}>
-                        <Text style={styles.sessionMeta}>
-                          {formatShortDate(session.date)} · {type.quality ? "QUALIDADE" : "BASE"}
+                                                  <Text style={styles.sessionMeta}>
+                          {formatShortDate(session.date)}· {type.quality ? "QUALIDADE" : "BASE"}
                         </Text>
                         <Pressable
                           accessibilityRole="button"
