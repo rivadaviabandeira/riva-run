@@ -513,13 +513,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return { ok: true, message: "Treino removido do plano." };
   }, []);
 
-  const currentAthleteId = state.athletes.find((item) => item.isMe)?.id ?? "";
-
   const toggleTrainingDone = useCallback(
     async (sessionId: string): Promise<ActionResult> => {
-      // Quem clica deve ser o atleta da sessão. Em produção, currentAthleteId vem do
-      // auth.uid(); em demo, do atleta marcado como "você". Se não for o atleta, o
-      // botão nem aparece - aqui serve de última linha de defesa e não tenta a RPC.
+      // Quem clica deve ser o atleta da sessão. Em demo, "você" é o atleta
+      // com isMe === true; em produção seria o atleta do auth.uid(). Se não for
+      // o atleta, o botão nem aparece - aqui serve de última linha de defesa e
+      // não tenta a RPC.
+      const currentAthleteId = state.athletes.find((a) => a.isMe)?.id ?? "";
       const session = state.sessions.find((item) => item.id === sessionId);
       if (!session || session.athleteId !== currentAthleteId) {
         return { ok: false, message: "Essa sessão não é sua." };
@@ -561,7 +561,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         ? { ok: true, message: "Treino marcado como concluído." }
         : { ok: false, message: "Treino reaberto no plano." };
     },
-    [state.sessions, currentAthleteId],
+    [state.athletes, state.sessions],
   );
 
   const joinChallenge = useCallback((challengeId: string): ActionResult => {

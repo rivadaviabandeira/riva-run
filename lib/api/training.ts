@@ -60,8 +60,9 @@ export async function markTrainingSessionDoneOnServer(
     actual_pace_s?: number;
   };
 
-  // O retorno da RPC ajuda na hydration do cache local, não precisa de re-fetch.
-  // Por enquanto, o retorno também não rejeita novamente quem não é o atleta:
+  // O retorno da RPC ajuda na hidratação do cache local — não precisa de re-fetch.
+  // A RPC decide quem pode marcar a sessão e se ela já foi concluída; quem não é
+  // o atleta da sessão ou quem já a marcou recebe rejeição via error.message.
 
   return {
     ok: true,
