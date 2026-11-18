@@ -1,9 +1,81 @@
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-const items=[{title:"Semana em movimento",type:"SEMANAL",goal:"30 km até domingo",done:"24,8 km",pct:83,points:80},{title:"Constância é tudo",type:"MENSAL",goal:"12 corridas no mês",done:"7 de 12",pct:58,points:100},{title:"Longão do mês",type:"MENSAL",goal:"4 corridas de 10 km ou mais",done:"2 de 4",pct:50,points:60}];
-export default function ChallengesScreen(){return <ScrollView style={s.screen} contentContainerStyle={s.content}>
- <Text style={s.eyebrow}>SUPERE SEUS LIMITES</Text><Text style={s.title}>Desafios</Text><Text style={s.sub}>Cada atividade conta. Cada meta aproxima você do pódio.</Text>
- <View style={s.pills}><Text style={s.active}>Todos</Text><Text style={s.pill}>Semanais</Text><Text style={s.pill}>Mensais</Text></View>
- {items.map(c=><View key={c.title} style={s.card}><View style={s.top}><View style={s.icon}><Ionicons name="flash-outline" size={22} color="#B8F34A"/></View><Text style={s.type}>{c.type}</Text></View><Text style={s.name}>{c.title}</Text><Text style={s.sub}>{c.goal}</Text><View style={s.between}><Text style={s.done}>{c.done}</Text><Text style={s.points}>+{c.points} pontos</Text></View><View style={s.track}><View style={[s.fill,{width:(c.pct+"%") as any}]}/></View><Text style={s.note}>Dados ilustrativos · desafio não conectado a dados reais</Text></View>)}
- </ScrollView>}
-const s=StyleSheet.create({screen:{flex:1,backgroundColor:"#0B1014"},content:{padding:20,paddingTop:28,paddingBottom:30,gap:16},eyebrow:{color:"#93A1AA",fontSize:10,fontWeight:"900",letterSpacing:2},title:{color:"#F5F8FA",fontSize:30,fontWeight:"900",marginTop:-10},sub:{color:"#93A1AA",fontSize:12,lineHeight:19},pills:{flexDirection:"row",gap:8},active:{color:"#10170A",backgroundColor:"#B8F34A",paddingVertical:9,paddingHorizontal:14,borderRadius:20,fontSize:11,fontWeight:"900"},pill:{color:"#93A1AA",backgroundColor:"#131C22",paddingVertical:9,paddingHorizontal:14,borderRadius:20,fontSize:11,fontWeight:"700"},card:{backgroundColor:"#131C22",borderColor:"#26333B",borderWidth:1,borderRadius:20,padding:17,gap:9},top:{flexDirection:"row",alignItems:"center",justifyContent:"space-between"},icon:{width:44,height:44,borderRadius:14,backgroundColor:"#263522",alignItems:"center",justifyContent:"center"},type:{color:"#B8F34A",fontSize:9,fontWeight:"900",letterSpacing:1.5},name:{color:"#F5F8FA",fontSize:17,fontWeight:"900"},between:{flexDirection:"row",justifyContent:"space-between",marginTop:5},done:{color:"#D5DEE3",fontSize:11,fontWeight:"700"},points:{color:"#B8F34A",fontSize:11,fontWeight:"900"},track:{height:6,backgroundColor:"#303D44",borderRadius:8,overflow:"hidden"},fill:{height:"100%",backgroundColor:"#B8F34A"},note:{color:"#65737C",fontSize:9,marginTop:3}});
+import { ActionButton, Card, Kicker, Muted, ProgressBar, Screen, Tag, palette } from "../../components/ui";
+import { useData } from "../../lib/data/provider";
+import { formatDecimal, formatShortDate } from "../../lib/domain";
+
+export default function ChallengesScreen() {
+  const { challengeViews, actions } = useData();
+
+  const toggle = (challengeId: string) => {
+    const result = actions.joinChallenge(challengeId);
+    Alert.alert(result.ok ? "Tudo certo" : "Inscrição alterada", result.message);
+  };
+
+  return (
+    <Screen>
+      <Kicker>SUPERE SEUS LIMITES</Kicker>
+      <Text style={styles.title}>Desafios</Text>
+      <Muted>Cada atividade validada conta. Cada meta aproxima você do pódio.</Muted>
+
+      {challengeViews.map((challenge) => (
+        <Card key={challenge.id} style={!challenge.joined ? styles.inactive : undefined}>
+          <View style={styles.top}>
+            <View style={styles.topLeft}>
+              <Ionicons name="flash-outline" size={18} color={palette.green} />
+              <Tag label={challenge.period} />
+              {challenge.done ? <Tag label="CONCLUÍDO" color={palette.gold} /> : null}
+            </View>
+            <Text style={styles.date}>até {formatShortDate(challenge.endsAt)}</Text>
+          </View>
+          <Text style={styles.name}>{challenge.title}</Text>
+          <Muted>{challenge.description}</Muted>
+          <View style={styles.rowBetween}>
+            <Text style={styles.progress}>
+              {formatDecimal(challenge.current)} de {challenge.targetValue} {challenge.unit}
+            </Text>
+            <Text style={styles.points}>+{challenge.points} PP</Text>
+          </View>
+          <ProgressBar value={challenge.pct} color={challenge.done ? palette.gold : palette.green} />
+          <View style={styles.footer}>
+            <Text style={styles.status}>
+              {challenge.joined
+                ? challenge.done
+                  ? "Meta batida — bônus creditado no saldo"
+                  : "Inscrito · progresso sincronizado"
+                : "Você ainda não está inscrito"}
+            </Text>
+            <ActionButton
+              label={challenge.joined ? "Sair" : "Participar"}
+              variant={challenge.joined ? "ghost" : "primary"}
+              onPress={() => toggle(challenge.id)}
+            />
+          </View>
+        </Card>
+      ))}
+
+      <Card style={styles.note}>
+        <Ionicons name="information-circle-outline" size={18} color={palette.green} />
+        <Muted>
+          A pontuação é calculada apenas sobre atividades validadas. Corridas repetidas do Strava são
+          ignoradas para que ninguém pontue duas vezes pelo mesmo treino.
+        </Muted>
+      </Card>
+    </Screen>
+  );
+}
+
+const styles = StyleSheet.create({
+  title: { color: palette.text, fontSize: 30, fontWeight: "900", marginTop: -6 },
+  top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  topLeft: { flexDirection: "row", alignItems: "center", gap: 7 },
+  date: { color: palette.faint, fontSize: 9, fontWeight: "800" },
+  name: { color: palette.text, fontSize: 17, fontWeight: "900" },
+  rowBetween: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  progress: { color: "#D5DEE3", fontSize: 11, fontWeight: "700" },
+  points: { color: palette.green, fontSize: 11, fontWeight: "900" },
+  footer: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: 4 },
+  status: { color: palette.faint, fontSize: 9, flex: 1, lineHeight: 14 },
+  inactive: { opacity: 0.85, borderStyle: "dashed" },
+  note: { flexDirection: "row", alignItems: "flex-start", gap: 9, backgroundColor: "#17221F", borderColor: "#2A3B33" },
+});

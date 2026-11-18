@@ -3,17 +3,31 @@
   "version": "0.1.0",
   "private": true,
   "main": "expo-router/entry",
-  "scripts": {"start":"expo start","android":"expo start --android","ios":"expo start --ios","web":"expo start --web","typecheck":"tsc --noEmit"},
-  "dependencies": {
-    "@expo/vector-icons":"^15.0.3",
-    "@supabase/supabase-js":"^2.57.0",
-    "expo":"~54.0.0",
-    "expo-router":"~6.0.0",
-    "expo-status-bar":"~3.0.9",
-    "react":"19.1.0",
-    "react-native":"0.81.5",
-    "react-native-safe-area-context":"~5.6.0",
-    "react-native-screens":"~4.16.0"
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "typecheck": "tsc --noEmit",
+    "db:test": "node supabase/tests/validate-migrations.mjs && node --experimental-strip-types supabase/tests/validate-domain-parity.mjs"
   },
-  "devDependencies":{"@types/react":"~19.1.10","typescript":"~5.9.2"}
+  "dependencies": {
+    "@expo/metro-runtime": "~6.1.2",
+    "@expo/vector-icons": "^15.0.3",
+    "@supabase/supabase-js": "^2.57.0",
+    "expo": "~54.0.0",
+    "expo-router": "~6.0.0",
+    "expo-status-bar": "~3.0.9",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-native": "0.81.5",
+    "react-native-safe-area-context": "~5.6.0",
+    "react-native-screens": "~4.16.0",
+    "react-native-web": "^0.21.0"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.16",
+    "@types/react": "~19.1.10",
+    "typescript": "~5.9.2"
+  }
 }

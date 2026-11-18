@@ -1,62 +1,184 @@
-import { Alert, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-
-const green = "#B8F34A";
-const muted = "#93A1AA";
-const whatsappNumber = process.env.EXPO_PUBLIC_STORE_WHATSAPP ?? "";
-
-const products = [
-  { id:"ph-performance", name:"Meia Performance", origin:"MARCA PRÓPRIA", detail:"Modelo demonstrativo · corrida e treino", price:"A definir", color:"#263522", icon:"fitness-outline" as const },
-  { id:"partner-run", name:"Meia de Corrida Parceira", origin:"REVENDA", detail:"Produto demonstrativo · marca parceira", price:"A definir", color:"#202E3B", icon:"ribbon-outline" as const },
-];
-
-async function contact(productName:string) {
-  if (!whatsappNumber) {
-    Alert.alert("WhatsApp em configuração", "O catálogo está em fase inicial. O número comercial será configurado antes da publicação.");
-    return;
-  }
-  const message = encodeURIComponent("Olá! Tenho interesse no produto " + productName + " da PaceHub Store. Pode me informar tamanhos, cores e disponibilidade?");
-  const url = "https://wa.me/" + whatsappNumber.replace(/\\D/g, "") + "?text=" + message;
-  try { await Linking.openURL(url); }
-  catch { Alert.alert("Não foi possível abrir o WhatsApp", "Verifique se o WhatsApp está instalado ou tente novamente."); }
-}
+import {
+  ActionButton,
+  Card,
+  IconBadge,
+  Kicker,
+  Muted,
+  Screen,
+  SectionTitle,
+  Tag,
+  palette,
+} from "../../components/ui";
+import { useData } from "../../lib/data/provider";
+import {
+  MAX_DISCOUNT_RATE,
+  PP_VALUE_BRL,
+  formatBRL,
+  formatDecimal,
+  formatShortDate,
+} from "../../lib/domain";
 
 export default function StoreScreen() {
-  return <ScrollView style={s.screen} contentContainerStyle={s.content}>
-    <Text style={s.kicker}>EQUIPAMENTO PARA IR MAIS LONGE</Text>
-    <Text style={s.title}>PaceHub <Text style={{color:green}}>Store</Text></Text>
-    <Text style={s.subtitle}>Produtos selecionados para acompanhar seus treinos e corridas.</Text>
-    <View style={s.banner}>
-      <View style={{flex:1,gap:7}}>
-        <Text style={s.bannerTag}>VITRINE DO CORREDOR</Text>
-        <Text style={s.bannerTitle}>Conforto em cada quilômetro.</Text>
-        <Text style={s.bannerText}>Conheça nossa seleção de meias de corrida.</Text>
-      </View>
-      <Ionicons name="footsteps-outline" size={52} color={green}/>
-    </View>
-    <View style={s.sectionRow}><Text style={s.section}>Meias de corrida</Text><Text style={s.count}>2 produtos demonstrativos</Text></View>
-    {products.map(p=><View key={p.id} style={s.product}>
-      <View style={[s.productVisual,{backgroundColor:p.color}]}>
-        <Ionicons name={p.icon} size={48} color={green}/>
-        <Text style={s.visualCaption}>PACEHUB STORE</Text>
-      </View>
-      <View style={s.productInfo}>
-        <Text style={s.origin}>{p.origin}</Text>
-        <Text style={s.productName}>{p.name}</Text>
-        <Text style={s.detail}>{p.detail}</Text>
-        <View style={s.buyRow}><Text style={s.price}>{p.price}</Text><TouchableOpacity style={s.button} onPress={()=>contact(p.name)}><Ionicons name="logo-whatsapp" size={16} color="#10170A"/><Text style={s.buttonText}>Consultar</Text></TouchableOpacity></View>
-      </View>
-    </View>)}
-    <View style={s.notice}><Ionicons name="information-circle-outline" size={18} color={green}/><Text style={s.noticeText}>Este catálogo é demonstrativo. Fotos comerciais, preços, tamanhos, cores, estoque e número de atendimento serão cadastrados na etapa de administração.</Text></View>
-    <Text style={s.footer}>PACEHUB · CORRA NO SEU RITMO</Text>
-  </ScrollView>;
+  const { rewards, products, redemptions, purchases, stats, discountFor, actions } = useData();
+
+  // Com backend configurado a chamada vai para a RPC do Postgres (003); no modo
+  // demonstração a mesma regra roda localmente.
+  const redeem = async (rewardId: string) => {
+    const result = await actions.redeemReward(rewardId);
+    Alert.alert(result.ok ? "Resgate confirmado" : "Resgate não realizado", result.message);
+  };
+
+  const buy = async (productId: string) => {
+    const result = await actions.buyProduct(productId);
+    Alert.alert(result.ok ? "Pedido registrado" : "Pedido não realizado", result.message);
+  };
+
+  return (
+    <Screen>
+      <Kicker>EQUIPAMENTO E RECOMPENSAS</Kicker>
+      <Text style={styles.title}>
+        Pace<Text style={{ color: palette.green }}>Store</Text>
+      </Text>
+      <Muted>
+        Use seus PP para resgatar benefícios ou abater até {Math.round(MAX_DISCOUNT_RATE * 100)}% no
+        valor de produtos.
+      </Muted>
+
+      <Card style={styles.balance}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.balanceLabel}>SALDO DISPONÍVEL</Text>
+          <Text style={styles.balanceValue}>
+            {formatDecimal(stats.balancePP)} <Text style={styles.balanceUnit}>PP</Text>
+          </Text>
+          <Muted>1 PP = {formatBRL(PP_VALUE_BRL)} de desconto · {formatDecimal(stats.spentPP)} PP já utilizados</Muted>
+        </View>
+        <Ionicons name="wallet-outline" size={30} color={palette.green} />
+      </Card>
+
+      <SectionTitle right={<Text style={styles.count}>{rewards.length} resgates</Text>}>
+        Resgatar com PP
+      </SectionTitle>
+      {rewards.map((reward) => {
+        const affordable = stats.balancePP >= reward.costPP;
+        return (
+          <Card key={reward.id}>
+            <View style={styles.row}>
+              <IconBadge icon={reward.icon} color={affordable ? palette.green : palette.faint} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.name}>{reward.name}</Text>
+                <Muted>{reward.description}</Muted>
+              </View>
+              <Tag label={`${reward.costPP} PP`} color={affordable ? palette.green : palette.muted} />
+            </View>
+            <ActionButton
+              label={affordable ? "Resgatar" : `Faltam ${formatDecimal(reward.costPP - stats.balancePP)} PP`}
+              icon="gift-outline"
+              onPress={() => redeem(reward.id)}
+              disabled={!affordable}
+            />
+          </Card>
+        );
+      })}
+
+      <SectionTitle right={<Text style={styles.count}>{products.length} produtos</Text>}>
+        Produtos com desconto
+      </SectionTitle>
+      {products.map((product) => {
+        const discount = discountFor(product.priceBRL);
+        return (
+          <Card key={product.id} style={styles.product}>
+            <View style={[styles.visual, { backgroundColor: product.tint }]}>
+              <Ionicons name={product.icon} size={42} color={palette.green} />
+              <Text style={styles.visualCaption}>PACEHUB STORE</Text>
+            </View>
+            <View style={styles.productBody}>
+              <Text style={styles.origin}>{product.origin}</Text>
+              <Text style={styles.name}>{product.name}</Text>
+              <Muted>{product.detail}</Muted>
+              <View style={styles.priceRow}>
+                <View>
+                  <Text style={styles.oldPrice}>{formatBRL(product.priceBRL)}</Text>
+                  <Text style={styles.price}>{formatBRL(discount.finalPriceBRL)}</Text>
+                </View>
+                <View style={{ alignItems: "flex-end" }}>
+                  <Text style={styles.discount}>
+                    -{formatBRL(discount.discountBRL)} ({formatDecimal(discount.ppUsed)} PP)
+                  </Text>
+                  <Text style={styles.cap}>máx. {formatDecimal(discount.maxPP)} PP</Text>
+                </View>
+              </View>
+              <ActionButton
+                label={discount.ppUsed > 0 ? "Comprar com desconto" : "Comprar sem desconto"}
+                icon="logo-whatsapp"
+                onPress={() => buy(product.id)}
+              />
+            </View>
+          </Card>
+        );
+      })}
+
+      <Card style={styles.notice}>
+        <Ionicons name="information-circle-outline" size={18} color={palette.green} />
+        <Muted>
+          Pedidos são concluídos pelo WhatsApp com a equipe PaceHub. O desconto em PP é aplicado no
+          atendimento e o valor final é sempre limitado a {Math.round(MAX_DISCOUNT_RATE * 100)}% do
+          produto.
+        </Muted>
+      </Card>
+
+      {redemptions.length + purchases.length > 0 ? (
+        <>
+          <SectionTitle>Seus últimos resgates</SectionTitle>
+          {redemptions.map((redemption) => (
+            <Card key={redemption.id} style={styles.historyRow}>
+              <Text style={styles.name}>{redemption.name}</Text>
+              <Text style={styles.historyMeta}>
+                {formatShortDate(redemption.createdAt)} · -{formatDecimal(redemption.costPP)} PP
+              </Text>
+            </Card>
+          ))}
+          {purchases.map((purchase) => (
+            <Card key={purchase.id} style={styles.historyRow}>
+              <Text style={styles.name}>
+                {products.find((product) => product.id === purchase.productId)?.name ?? "Produto"}
+              </Text>
+              <Text style={styles.historyMeta}>
+                {formatShortDate(purchase.createdAt)} · {formatBRL(purchase.paidBRL)} · -
+                {formatDecimal(purchase.ppUsed)} PP
+              </Text>
+            </Card>
+          ))}
+        </>
+      ) : null}
+
+      <Text style={styles.footer}>PACEHUB · CORRA NO SEU RITMO</Text>
+    </Screen>
+  );
 }
 
-const s=StyleSheet.create({
-  screen:{flex:1,backgroundColor:"#0B1014"},content:{padding:20,paddingTop:28,paddingBottom:34,gap:15},
-  kicker:{color:muted,fontSize:10,fontWeight:"900",letterSpacing:1.8},title:{color:"#F5F8FA",fontSize:30,fontWeight:"900",marginTop:-8},subtitle:{color:muted,fontSize:12,lineHeight:19,marginTop:-8},
-  banner:{backgroundColor:"#1A272B",borderColor:"#34443B",borderWidth:1,borderRadius:20,padding:18,flexDirection:"row",alignItems:"center",gap:10},bannerTag:{color:green,fontSize:9,fontWeight:"900",letterSpacing:1.3},bannerTitle:{color:"#F5F8FA",fontSize:20,fontWeight:"900",lineHeight:25},bannerText:{color:"#B6C3C9",fontSize:11,lineHeight:16},
-  sectionRow:{flexDirection:"row",justifyContent:"space-between",alignItems:"center",marginTop:4},section:{color:"#F5F8FA",fontSize:16,fontWeight:"900"},count:{color:muted,fontSize:9},
-  product:{backgroundColor:"#131C22",borderColor:"#26333B",borderWidth:1,borderRadius:19,overflow:"hidden"},productVisual:{height:125,alignItems:"center",justifyContent:"center",gap:6},visualCaption:{color:"#C5D0D5",fontSize:8,fontWeight:"900",letterSpacing:2},productInfo:{padding:15,gap:6},origin:{color:green,fontSize:9,fontWeight:"900",letterSpacing:1.2},productName:{color:"#F5F8FA",fontSize:16,fontWeight:"900"},detail:{color:muted,fontSize:11},buyRow:{flexDirection:"row",alignItems:"center",justifyContent:"space-between",marginTop:7},price:{color:"#F5F8FA",fontSize:13,fontWeight:"800"},button:{backgroundColor:green,borderRadius:12,paddingHorizontal:13,paddingVertical:10,flexDirection:"row",alignItems:"center",gap:7},buttonText:{color:"#10170A",fontSize:11,fontWeight:"900"},
-  notice:{flexDirection:"row",alignItems:"flex-start",gap:9,backgroundColor:"#17221F",borderRadius:13,padding:13},noticeText:{flex:1,color:"#AAB7B0",fontSize:10,lineHeight:15},footer:{color:"#65737C",fontSize:9,textAlign:"center",letterSpacing:1.5,marginTop:5}
+const styles = StyleSheet.create({
+  title: { color: palette.text, fontSize: 30, fontWeight: "900", marginTop: -6 },
+  balance: { flexDirection: "row", alignItems: "center", backgroundColor: palette.cardAlt, borderColor: palette.lineStrong },
+  balanceLabel: { color: "#C3D0C7", fontSize: 9, fontWeight: "900", letterSpacing: 1.4 },
+  balanceValue: { color: palette.text, fontSize: 32, fontWeight: "900", marginVertical: 2 },
+  balanceUnit: { fontSize: 15, color: palette.green },
+  count: { color: palette.muted, fontSize: 9 },
+  row: { flexDirection: "row", alignItems: "center", gap: 11 },
+  name: { color: palette.text, fontSize: 14, fontWeight: "900" },
+  product: { padding: 0, overflow: "hidden" },
+  visual: { height: 110, alignItems: "center", justifyContent: "center", gap: 4 },
+  visualCaption: { color: "#C5D0D5", fontSize: 8, fontWeight: "900", letterSpacing: 2 },
+  productBody: { padding: 14, gap: 7 },
+  origin: { color: palette.green, fontSize: 9, fontWeight: "900", letterSpacing: 1.2 },
+  priceRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginTop: 2 },
+  oldPrice: { color: palette.faint, fontSize: 10, textDecorationLine: "line-through" },
+  price: { color: palette.text, fontSize: 17, fontWeight: "900" },
+  discount: { color: palette.green, fontSize: 10, fontWeight: "900" },
+  cap: { color: palette.faint, fontSize: 9 },
+  notice: { flexDirection: "row", alignItems: "flex-start", gap: 9, backgroundColor: "#17221F", borderColor: "#2A3B33" },
+  historyRow: { gap: 3, paddingVertical: 12 },
+  historyMeta: { color: palette.muted, fontSize: 10 },
+  footer: { color: palette.faint, fontSize: 9, textAlign: "center", letterSpacing: 1.5, marginTop: 4 },
 });

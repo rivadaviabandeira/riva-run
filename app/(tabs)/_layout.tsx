@@ -11,7 +11,7 @@ export default function TabLayout() {
   }}>
     <Tabs.Screen name="index" options={{ title:"Início", tabBarIcon:({color,size})=><Ionicons name="home-outline" color={color} size={size}/> }} />
     <Tabs.Screen name="desafios" options={{ title:"Desafios", tabBarIcon:({color,size})=><Ionicons name="flag-outline" color={color} size={size}/> }} />
-    <Tabs.Screen name="tenis" options={{ title:"Tênis", tabBarIcon:({color,size})=><Ionicons name="footsteps-outline" color={color} size={size}/> }} />
+    <Tabs.Screen name="treinos" options={{ title:"Treinos", tabBarIcon:({color,size})=><Ionicons name="barbell-outline" color={color} size={size}/> }} />
     <Tabs.Screen name="ranking" options={{ title:"Ranking", tabBarIcon:({color,size})=><Ionicons name="trophy-outline" color={color} size={size}/> }} />
     <Tabs.Screen name="store" options={{ title:"Store", tabBarIcon:({color,size})=><Ionicons name="bag-outline" color={color} size={size}/> }} />
   </Tabs>;
