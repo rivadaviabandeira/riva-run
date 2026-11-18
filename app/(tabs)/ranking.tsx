@@ -1,11 +1,153 @@
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-const runners=[{p:1,n:"Marcos Lima",pts:580,km:"82,4",c:"#E6B84B",band:"PÓDIO"},{p:2,n:"Ana Ferreira",pts:540,km:"76,2",c:"#C7D1D8",band:"PÓDIO"},{p:3,n:"João Costa",pts:510,km:"71,8",c:"#C78A5B",band:"PÓDIO"},{p:4,n:"Camila Alves",pts:470,km:"65,1",c:"#65B8FF",band:"4º–10º"},{p:5,n:"Rafael Souza",pts:430,km:"60,3",c:"#65B8FF",band:"4º–10º"},{p:11,n:"Bruna Melo",pts:310,km:"43,7",c:"#69D6A5",band:"11º–20º"},{p:21,n:"Pedro Rocha",pts:180,km:"25,2",c:"#82909A",band:"21º+"}];
-export default function RankingScreen(){return <ScrollView style={s.screen} contentContainerStyle={s.content}>
- <Text style={s.eyebrow}>CORRER JUNTO É MELHOR</Text><Text style={s.title}>Ranking</Text><Text style={s.sub}>Classificação ilustrativa do desafio mensal.</Text>
- <View style={s.podium}><Ionicons name="trophy" size={28} color="#E6B84B"/><Text style={s.podiumTitle}>Pódio do desafio</Text><Text style={s.sub}>Os três primeiros colocados</Text><View style={s.podiumRow}>{runners.slice(0,3).map(p=><View key={p.p} style={s.person}><View style={[s.avatar,{borderColor:p.c}]}><Text style={{color:p.c,fontWeight:"900"}}>{p.n.split(" ").map(x=>x[0]).slice(0,2).join("")}</Text></View><Text style={s.podiumName}>{p.n.split(" ")[0]}</Text><Text style={{color:p.c,fontWeight:"900"}}>{p.pts}</Text><View style={[s.bar,{height:p.p===1?65:p.p===2?52:40,borderColor:p.c,backgroundColor:p.c+"30"}]}><Text style={{color:p.c,fontWeight:"900"}}>{p.p}º</Text></View></View>)}</View></View>
- <Text style={s.section}>Classificação por faixa</Text><View style={s.legend}><Text style={{color:"#E6B84B"}}>● 1º–3º</Text><Text style={{color:"#65B8FF"}}>● 4º–10º</Text><Text style={{color:"#69D6A5"}}>● 11º–20º</Text><Text style={{color:"#82909A"}}>● 21º+</Text></View>
- {runners.map(p=><View key={p.p} style={[s.row,{borderLeftColor:p.c}]}><Text style={[s.pos,{color:p.c}]}>{String(p.p).padStart(2,"0")}</Text><View style={{flex:1}}><Text style={s.name}>{p.n}</Text><Text style={s.sub}>{p.km} km no desafio</Text></View><View style={{alignItems:"flex-end"}}><Text style={s.points}>{p.pts} pts</Text><Text style={{color:p.c,fontSize:9,fontWeight:"900"}}>{p.band}</Text></View></View>)}
- <View style={s.callout}><Ionicons name="footsteps-outline" color="#B8F34A" size={22}/><View style={{flex:1}}><Text style={s.name}>Tênis mais usado</Text><Text style={s.sub}>O resultado final somará os quilômetros válidos por marca e modelo durante o desafio.</Text></View></View><Text style={s.note}>Participantes, pontos e distâncias são fictícios.</Text>
- </ScrollView>}
-const s=StyleSheet.create({screen:{flex:1,backgroundColor:"#0B1014"},content:{padding:20,paddingTop:28,paddingBottom:34,gap:15},eyebrow:{color:"#93A1AA",fontSize:10,fontWeight:"900",letterSpacing:2},title:{color:"#F5F8FA",fontSize:30,fontWeight:"900",marginTop:-10},sub:{color:"#93A1AA",fontSize:11,lineHeight:17},podium:{backgroundColor:"#131C22",borderWidth:1,borderColor:"#26333B",borderRadius:22,padding:18,alignItems:"center"},podiumTitle:{color:"#F5F8FA",fontSize:17,fontWeight:"900",marginTop:7},podiumRow:{flexDirection:"row",alignItems:"flex-end",justifyContent:"center",gap:10,marginTop:18,width:"100%"},person:{flex:1,alignItems:"center",gap:6},avatar:{width:45,height:45,borderRadius:24,borderWidth:2,alignItems:"center",justifyContent:"center",backgroundColor:"#202A30"},podiumName:{color:"#F5F8FA",fontSize:10,fontWeight:"800"},bar:{width:"100%",borderTopLeftRadius:9,borderTopRightRadius:9,borderWidth:1,alignItems:"center",justifyContent:"center"},section:{color:"#F5F8FA",fontSize:15,fontWeight:"900"},legend:{flexDirection:"row",flexWrap:"wrap",gap:10},row:{flexDirection:"row",alignItems:"center",gap:12,backgroundColor:"#131C22",borderWidth:1,borderColor:"#26333B",borderLeftWidth:4,borderRadius:13,padding:13},pos:{fontSize:15,fontWeight:"900",width:25},name:{color:"#F5F8FA",fontSize:12,fontWeight:"800"},points:{color:"#F5F8FA",fontSize:12,fontWeight:"900"},callout:{flexDirection:"row",alignItems:"flex-start",gap:12,backgroundColor:"#1A272B",borderWidth:1,borderColor:"#34443B",borderRadius:16,padding:15},note:{color:"#65737C",fontSize:9,textAlign:"center"}});
+import { Card, Kicker, Muted, Screen, SectionTitle, palette } from "../../components/ui";
+import { useData } from "../../lib/data/provider";
+import { DEMO_RIVALS } from "../../lib/data/demo";
+import { formatDecimal, rankBand } from "../../lib/domain";
+
+export default function RankingScreen() {
+  const { profile, stats, shoes } = useData();
+
+  const entries = [
+    ...DEMO_RIVALS,
+    {
+      name: profile.name,
+      points: Math.round(stats.lifetimePP),
+      km: stats.totalKm,
+      isMe: true,
+    },
+  ].sort((a, b) => b.points - a.points);
+
+  const podium = entries.slice(0, 3);
+
+  const mostUsed = shoes
+    .map((shoe) => ({ shoe, km: stats.shoeKmById[shoe.id] ?? 0 }))
+    .sort((a, b) => b.km - a.km)[0];
+
+  return (
+    <Screen>
+      <Kicker>CORRER JUNTO É MELHOR</Kicker>
+      <Text style={styles.title}>Ranking</Text>
+      <Muted>
+        Classificação do desafio mensal por PP de carreira. Seu saldo disponível pode ser menor porque
+        resgates já foram feitos.
+      </Muted>
+
+      <Card style={styles.podium}>
+        <Ionicons name="trophy" size={26} color={palette.gold} />
+        <Text style={styles.podiumTitle}>Pódio do desafio</Text>
+        <Muted>Os três primeiros colocados</Muted>
+        <View style={styles.podiumRow}>
+          {podium.map((entry, index) => {
+            const color = rankBand(index + 1).color;
+            return (
+              <View key={entry.name} style={styles.person}>
+                <View style={[styles.avatar, { borderColor: color }]}>
+                  <Text style={{ color, fontWeight: "900", fontSize: 12 }}>
+                    {entry.name
+                      .split(" ")
+                      .map((part) => part[0])
+                      .slice(0, 2)
+                      .join("")}
+                  </Text>
+                </View>
+                <Text style={styles.podiumName} numberOfLines={1}>
+                  {entry.name.split(" ")[0]}
+                </Text>
+                <Text style={{ color, fontWeight: "900", fontSize: 11 }}>{Math.round(entry.points)}</Text>
+                <View
+                  style={[
+                    styles.bar,
+                    {
+                      height: index === 0 ? 62 : index === 1 ? 50 : 38,
+                      borderColor: color,
+                      backgroundColor: `${color}30`,
+                    },
+                  ]}
+                >
+                  <Text style={{ color, fontWeight: "900", fontSize: 11 }}>{index + 1}º</Text>
+                </View>
+              </View>
+            );
+          })}
+        </View>
+      </Card>
+
+      <SectionTitle>Classificação por faixa</SectionTitle>
+      <View style={styles.legend}>
+        <Text style={{ color: palette.gold, fontSize: 10 }}>● 1º–3º</Text>
+        <Text style={{ color: palette.blue, fontSize: 10 }}>● 4º–10º</Text>
+        <Text style={{ color: "#69D6A5", fontSize: 10 }}>● 11º–20º</Text>
+        <Text style={{ color: palette.muted, fontSize: 10 }}>● 21º+</Text>
+      </View>
+
+      {entries.map((entry, index) => {
+        const band = rankBand(index + 1);
+        return (
+          <View
+            key={entry.name}
+            style={[
+              styles.row,
+              { borderLeftColor: band.color },
+              entry.isMe && { backgroundColor: "#17221F" },
+            ]}
+          >
+            <Text style={[styles.pos, { color: band.color }]}>{String(index + 1).padStart(2, "0")}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.name}>
+                {entry.name}
+                {entry.isMe ? " (você)" : ""}
+              </Text>
+              <Text style={styles.sub}>{formatDecimal(entry.km)} km no desafio</Text>
+            </View>
+            <View style={{ alignItems: "flex-end" }}>
+              <Text style={styles.points}>{Math.round(entry.points)} pts</Text>
+              <Text style={{ color: band.color, fontSize: 9, fontWeight: "900" }}>{band.label}</Text>
+            </View>
+          </View>
+        );
+      })}
+
+      <Card style={styles.callout}>
+        <Ionicons name="footsteps-outline" color={palette.green} size={22} />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.name}>Tênis mais usado</Text>
+          <Muted>
+            {mostUsed
+              ? `${mostUsed.shoe.brand} ${mostUsed.shoe.model} · ${formatDecimal(mostUsed.km)} km válidos no desafio.`
+              : "Associe um tênis às corridas para ver este resultado."}
+          </Muted>
+        </View>
+      </Card>
+      <Muted>Participantes adversários são fictícios; sua pontuação é calculada pelos dados do app.</Muted>
+    </Screen>
+  );
+}
+
+const styles = StyleSheet.create({
+  title: { color: palette.text, fontSize: 30, fontWeight: "900", marginTop: -6 },
+  podium: { alignItems: "center", backgroundColor: "#141F22", borderColor: palette.line },
+  podiumTitle: { color: palette.text, fontSize: 17, fontWeight: "900" },
+  podiumRow: { flexDirection: "row", alignItems: "flex-end", justifyContent: "center", gap: 10, marginTop: 14, width: "100%" },
+  person: { flex: 1, alignItems: "center", gap: 5 },
+  avatar: { width: 44, height: 44, borderRadius: 22, borderWidth: 2, alignItems: "center", justifyContent: "center", backgroundColor: "#202A30" },
+  podiumName: { color: palette.text, fontSize: 10, fontWeight: "800" },
+  bar: { width: "100%", borderTopLeftRadius: 9, borderTopRightRadius: 9, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+  legend: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: palette.card,
+    borderWidth: 1,
+    borderColor: palette.line,
+    borderLeftWidth: 4,
+    borderRadius: 13,
+    padding: 13,
+  },
+  pos: { fontSize: 15, fontWeight: "900", width: 24 },
+  name: { color: palette.text, fontSize: 12, fontWeight: "800" },
+  sub: { color: palette.muted, fontSize: 10, marginTop: 2 },
+  points: { color: palette.text, fontSize: 12, fontWeight: "900" },
+  callout: { flexDirection: "row", alignItems: "flex-start", gap: 12, backgroundColor: palette.cardAlt, borderColor: palette.lineStrong },
+});

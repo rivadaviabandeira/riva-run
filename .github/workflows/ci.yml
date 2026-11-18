@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      # `npm ci` falha neste projeto (peer deps react/react-dom); instalar com
+      # `npm install` preserva o package-lock do repositório.
+      - name: Instalar dependências
+        run: npm install --no-audit --no-fund
+
+      - name: Verificação de tipos
+        run: npm run typecheck
+
+      # Aplica 001–004 num Postgres 17 (PGlite) e compara as regras do app com
+      # o banco em seguida.
+      - name: Migrations e paridade de regras
+        run: npm run db:test

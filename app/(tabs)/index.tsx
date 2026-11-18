@@ -1,26 +1,316 @@
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-const green="#B8F34A", muted="#93A1AA", card="#131C22", line="#26333B";
-function Metric({label,value}:{label:string;value:string}) {
- return <View style={s.metric}><Text style={s.metricLabel}>{label}</Text><Text style={s.metricValue}>{value}</Text></View>;
-}
+import {
+  ActionButton,
+  Card,
+  IconBadge,
+  Kicker,
+  Muted,
+  ProgressBar,
+  Screen,
+  SectionTitle,
+  StatTile,
+  Tag,
+  palette,
+} from "../../components/ui";
+import { useData } from "../../lib/data/provider";
+import {
+  WEEKDAYS,
+  formatDecimal,
+  formatPace,
+  formatRelative,
+  formatShortDate,
+  goalLabel,
+  levelRules,
+  paceSecondsOf,
+  sessionType,
+  sessionsOfWeek,
+} from "../../lib/domain";
+import type { IconName } from "../../lib/data/types";
+
+const initials = (name: string) =>
+  name
+    .split(" ")
+    .map((part) => part[0])
+    .slice(0, 2)
+    .join("");
+
 export default function HomeScreen() {
- return <ScrollView style={s.screen} contentContainerStyle={s.content}>
-  <View style={s.header}><View><Text style={s.kicker}>CORRA NO SEU RITMO</Text><Text style={s.title}>Pace<Text style={{color:green}}>Hub</Text></Text></View><View style={s.avatar}><Ionicons name="person-outline" size={22} color={green}/></View></View>
-  <View style={s.hero}><View style={s.heroTop}><View style={s.dot}/><Text style={s.eyebrow}>RESUMO DA SEMANA</Text></View><Text style={s.km}>24,8 <Text style={s.unit}>km</Text></Text><Text style={s.muted}>quilômetros registrados · dados demonstrativos</Text><View style={s.track}><View style={s.fill}/></View><View style={s.between}><Text style={s.muted}>Meta semanal: 30 km</Text><Text style={s.greenText}>83%</Text></View></View>
-  <View style={s.metrics}><Metric label="PONTOS" value="180"/><Metric label="CORRIDAS" value="4"/><Metric label="TÊNIS" value="2/5"/></View>
-  <View style={s.between}><Text style={s.section}>Desafio em destaque</Text><Text style={s.greenText}>SEMANAL</Text></View>
-  <View style={s.card}><View style={s.icon}><Ionicons name="flash-outline" size={22} color={green}/></View><View style={{flex:1}}><Text style={s.cardTitle}>Semana em movimento</Text><Text style={s.muted}>Meta de 30 km · termina domingo</Text><View style={s.track}><View style={s.fill}/></View></View></View>
-  <Text style={s.section}>Sincronize suas corridas</Text>
-  <View style={s.card}><View style={s.icon}><Ionicons name="sync-outline" size={22} color={green}/></View><View style={{flex:1}}><Text style={s.cardTitle}>Strava</Text><Text style={s.muted}>Integração planejada. A conexão ainda não está ativa.</Text></View></View>
-  <View style={s.card}><View style={s.icon}><Ionicons name="bag-outline" size={22} color={green}/></View><View style={{flex:1}}><Text style={s.cardTitle}>Conheça a PaceHub Store</Text><Text style={s.muted}>Meias de corrida, produtos próprios e marcas parceiras.</Text></View></View>
-  <Text style={s.footnote}>Protótipo visual · dados demonstrativos, sem sincronização real.</Text>
- </ScrollView>;
+  const {
+    profile,
+    stats,
+    strava,
+    activities,
+    shoes,
+    challengeViews,
+    athletes,
+    trainingSessions,
+    actions,
+  } = useData();
+
+  const recent = [...activities]
+    .filter((activity) => activity.status === "validated")
+    .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
+    .slice(0, 3);
+
+  const challenge = challengeViews[0];
+
+  const myAthlete = athletes.find((item) => item.isMe);
+  const myWeek = sessionsOfWeek(
+    trainingSessions.filter((session) => session.athleteId === myAthlete?.id),
+  );
+  const nextSession = myWeek.find((session) => !session.done) ?? null;
+  const planDone = myWeek.filter((session) => session.done).length;
+
+  const sync = () => {
+    const result = actions.syncStrava();
+    Alert.alert(result.ok ? "Sincronização concluída" : "Sincronização indisponível", result.message);
+  };
+
+  return (
+    <Screen>
+      <View style={styles.header}>
+        <View>
+          <Kicker>CORRA NO SEU RITMO</Kicker>
+          <Text style={styles.title}>
+            Pace<Text style={{ color: palette.green }}>Hub</Text>
+          </Text>
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Abrir meu perfil"
+          onPress={() => router.push("/perfil")}
+          style={styles.avatar}
+        >
+          <Text style={styles.avatarText}>{initials(profile.name)}</Text>
+        </Pressable>
+      </View>
+
+      <Card style={styles.hero}>
+        <View style={styles.rowBetween}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.heroEyebrow}>
+              NÍVEL {stats.level.level} · {stats.level.title.toUpperCase()}
+            </Text>
+            <Text style={styles.pp}>
+              {formatDecimal(stats.balancePP)} <Text style={styles.ppUnit}>PP</Text>
+            </Text>
+            <Muted>Saldo para resgatar na PaceStore</Muted>
+          </View>
+          <Tag label={`${stats.unlockedAchievements}/9 MEDALHAS`} color={palette.gold} />
+        </View>
+        <ProgressBar value={stats.level.progress} />
+        <Text style={styles.hint}>
+          {stats.level.maxed
+            ? "Nível máximo de carreira alcançado."
+            : `Faltam ${formatDecimal(stats.level.remaining)} PP para o nível ${stats.level.level + 1}`}
+        </Text>
+      </Card>
+
+      <Card>
+        <View style={styles.rowBetween}>
+          <Text style={styles.cardTitle}>Meta da semana</Text>
+          <Text style={styles.greenText}>
+            {stats.weeklyRuns} de {stats.weeklyGoalRuns} treinos
+          </Text>
+        </View>
+        <ProgressBar value={stats.weeklyRuns / stats.weeklyGoalRuns} />
+        <Muted>
+          {formatDecimal(stats.weeklyKm)} km nesta semana · sequência de {stats.weeklyStreak} semana(s)
+          com a meta batida
+        </Muted>
+      </Card>
+
+      <SectionTitle
+        right={
+          <Text style={styles.link} onPress={() => router.push("/treinos")}>
+            TREINADOR
+          </Text>
+        }
+      >
+        Plano do treinador
+      </SectionTitle>
+      <Card>
+        <View style={styles.rowBetween}>
+          <Text style={styles.cardTitle}>
+            {myAthlete
+              ? `Meta ${goalLabel(myAthlete.goal)} · ${levelRules(myAthlete.level).label}`
+              : "Sem atleta definido"}
+          </Text>
+          <Text style={styles.greenText}>
+            {planDone}/{myWeek.length} feitos
+          </Text>
+        </View>
+        {nextSession ? (
+          <>
+            <View style={styles.challengeTop}>
+              <IconBadge
+                icon={sessionType(nextSession.typeId).icon as IconName}
+                color={sessionType(nextSession.typeId).color}
+                size={38}
+              />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.runTitle}>
+                  {sessionType(nextSession.typeId).label} · {formatDecimal(nextSession.distanceKm)} km
+                </Text>
+                <Muted>
+                  {WEEKDAYS[(new Date(nextSession.date).getDay() + 6) % 7]} · pace{" "}
+                  {formatPace(nextSession.targetPaceS)}/km
+                </Muted>
+              </View>
+            </View>
+            <Text style={styles.small}>{nextSession.note}</Text>
+          </>
+        ) : (
+          <Muted>Sem treino prescrito nesta semana. Monte o plano no modo treinador.</Muted>
+        )}
+        <ActionButton
+          label="Abrir treinos"
+          variant="ghost"
+          icon="people-outline"
+          onPress={() => router.push("/treinos")}
+        />
+      </Card>
+
+      <Card style={styles.metrics}>
+        <StatTile label="CORRIDAS" value={String(stats.validatedRuns)} hint="validadas" />
+        <View style={styles.divider} />
+        <StatTile label="KM TOTAIS" value={formatDecimal(stats.totalKm)} hint="distância acumulada" />
+        <View style={styles.divider} />
+        <StatTile
+          label="MELHOR PACE"
+          value={formatPace(stats.bestPaceS)}
+          hint="por quilômetro"
+        />
+      </Card>
+
+      <SectionTitle right={<Text style={styles.link} onPress={() => router.push("/desafios")}>VER TODOS</Text>}>
+        Desafio em destaque
+      </SectionTitle>
+      {challenge ? (
+        <Card>
+          <View style={styles.challengeTop}>
+            <IconBadge icon="flash-outline" />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.cardTitle}>{challenge.title}</Text>
+              <Muted>{challenge.description}</Muted>
+            </View>
+            <Tag label={challenge.period} />
+          </View>
+          <View style={styles.rowBetween}>
+            <Text style={styles.small}>
+              {formatDecimal(challenge.current)} de {challenge.targetValue} {challenge.unit}
+            </Text>
+            <Text style={styles.greenText}>+{challenge.points} PP</Text>
+          </View>
+          <ProgressBar value={challenge.pct} />
+        </Card>
+      ) : null}
+
+      <SectionTitle>Sincronizar corridas</SectionTitle>
+      <Card>
+        <View style={styles.challengeTop}>
+          <IconBadge icon="sync-outline" color={palette.blue} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.cardTitle}>Strava</Text>
+            <Muted>
+              {strava.connected
+                ? `Conectado como ${strava.athleteName ?? profile.name} · última sincronização ${formatRelative(strava.lastSyncAt)}`
+                : "Conecte sua conta para importar as corridas automaticamente."}
+            </Muted>
+          </View>
+        </View>
+        <View style={styles.actionsRow}>
+          <ActionButton
+            label={strava.connected ? "Sincronizar agora" : "Conectar Strava"}
+            icon="sync-outline"
+            onPress={sync}
+          />
+          <ActionButton
+            label="Perfil e conexões"
+            variant="ghost"
+            onPress={() => router.push("/perfil")}
+          />
+        </View>
+      </Card>
+
+      <SectionTitle>Últimas corridas</SectionTitle>
+      {recent.map((activity) => (
+        <Card key={activity.id} style={styles.run}>
+          <IconBadge icon="walk-outline" size={36} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.runTitle}>{activity.title}</Text>
+            <Muted>
+              {formatShortDate(activity.startedAt)} · {formatDecimal(activity.distanceKm)} km ·{" "}
+              {formatPace(paceSecondsOf(activity))}/km
+            </Muted>
+          </View>
+          <Text style={styles.runShoe}>
+            {activity.shoeId
+              ? shoes.find((shoe) => shoe.id === activity.shoeId)?.model ?? "—"
+              : "sem tênis"}
+          </Text>
+        </Card>
+      ))}
+
+      <Card style={styles.steward}>
+        <View style={styles.challengeTop}>
+          <IconBadge icon="shield-checkmark-outline" color={palette.gold} size={38} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.cardTitle}>Agente de dados</Text>
+            <Muted>
+              {stats.validatedRuns} corridas validadas · {formatDecimal(stats.lifetimePP)} PP de
+              carreira
+            </Muted>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={palette.faint} />
+        </View>
+        <ActionButton
+          label="Revisar integridade dos dados"
+          variant="ghost"
+          onPress={() => router.push("/perfil")}
+        />
+      </Card>
+
+      <Text style={styles.footnote}>
+        Modo demonstração · dados locais, sem sincronização real com o Strava.
+      </Text>
+    </Screen>
+  );
 }
-const s=StyleSheet.create({
- screen:{flex:1,backgroundColor:"#0B1014"},content:{padding:20,paddingTop:24,paddingBottom:32,gap:17},
- header:{flexDirection:"row",justifyContent:"space-between",alignItems:"center",marginBottom:3},kicker:{color:muted,fontSize:10,fontWeight:"800",letterSpacing:2},title:{color:"#F5F8FA",fontSize:32,fontWeight:"900",marginTop:4},avatar:{width:44,height:44,borderRadius:15,backgroundColor:card,borderWidth:1,borderColor:line,alignItems:"center",justifyContent:"center"},
- hero:{backgroundColor:"#1A272B",borderColor:"#34443B",borderWidth:1,borderRadius:24,padding:20},heroTop:{flexDirection:"row",alignItems:"center",gap:8},dot:{width:7,height:7,borderRadius:4,backgroundColor:green},eyebrow:{color:"#C3D0C7",fontSize:10,fontWeight:"800",letterSpacing:1.5},km:{color:"#F7FAF5",fontSize:48,fontWeight:"900",marginTop:10},unit:{fontSize:20,color:green},muted:{color:muted,fontSize:11,lineHeight:17},track:{height:6,borderRadius:8,backgroundColor:"#303D44",overflow:"hidden",marginTop:13},fill:{width:"83%",height:"100%",backgroundColor:green,borderRadius:8},between:{flexDirection:"row",justifyContent:"space-between",alignItems:"center",marginTop:9},greenText:{color:green,fontSize:11,fontWeight:"900"},
- metrics:{flexDirection:"row",backgroundColor:card,borderColor:line,borderWidth:1,borderRadius:18,paddingVertical:15},metric:{flex:1,paddingHorizontal:10,borderRightWidth:1,borderRightColor:line,gap:8},metricLabel:{color:muted,fontSize:9,fontWeight:"800",letterSpacing:1},metricValue:{color:"#F5F8FA",fontSize:22,fontWeight:"900"},
- section:{color:"#F5F8FA",fontSize:16,fontWeight:"800"},card:{flexDirection:"row",alignItems:"center",gap:12,padding:15,backgroundColor:card,borderRadius:18,borderWidth:1,borderColor:line},icon:{width:42,height:42,borderRadius:13,backgroundColor:"#263522",alignItems:"center",justifyContent:"center"},cardTitle:{color:"#F5F8FA",fontSize:13,fontWeight:"800",marginBottom:4},footnote:{color:"#65737C",fontSize:10,textAlign:"center"}
+
+const styles = StyleSheet.create({
+  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  title: { color: palette.text, fontSize: 32, fontWeight: "900", marginTop: 2 },
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 15,
+    backgroundColor: "#263522",
+    borderWidth: 1,
+    borderColor: "#3A4A33",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarText: { color: palette.green, fontWeight: "900", fontSize: 14 },
+  hero: { backgroundColor: palette.cardAlt, borderColor: palette.lineStrong },
+  heroEyebrow: { color: "#C3D0C7", fontSize: 9, fontWeight: "900", letterSpacing: 1.4 },
+  pp: { color: palette.text, fontSize: 42, fontWeight: "900", marginTop: 2 },
+  ppUnit: { fontSize: 18, color: palette.green },
+  rowBetween: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 },
+  hint: { color: palette.faint, fontSize: 10 },
+  cardTitle: { color: palette.text, fontSize: 14, fontWeight: "900" },
+  greenText: { color: palette.green, fontSize: 11, fontWeight: "900" },
+  metrics: { flexDirection: "row", alignItems: "center" },
+  divider: { width: 1, height: 34, backgroundColor: palette.line },
+  link: { color: palette.green, fontSize: 9, fontWeight: "900", letterSpacing: 1 },
+  challengeTop: { flexDirection: "row", alignItems: "center", gap: 11 },
+  small: { color: "#D5DEE3", fontSize: 11, fontWeight: "700" },
+  actionsRow: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
+  run: { flexDirection: "row", alignItems: "center", gap: 11, paddingVertical: 12 },
+  runTitle: { color: palette.text, fontSize: 12, fontWeight: "800" },
+  runShoe: { color: palette.faint, fontSize: 9, fontWeight: "800", maxWidth: 80, textAlign: "right" },
+  steward: { backgroundColor: "#17221F", borderColor: "#2A3B33" },
+  footnote: { color: palette.faint, fontSize: 10, textAlign: "center", marginTop: 4 },
 });
