@@ -45,25 +45,29 @@ export default function ProfileScreen() {
       </View>
 
       <Card style={styles.profile}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>
-            {profile.name
-              .split(" ")
-              .map((part) => part[0])
-              .slice(0, 2)
-              .join("")}
-          </Text>
+        <View style={styles.profileTop}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>
+              {profile.name
+                .split(" ")
+                .map((part) => part[0])
+                .slice(0, 2)
+                .join("")}
+            </Text>
+          </View>
+          <View style={styles.identity}>
+            <Text style={styles.name}>{profile.name}</Text>
+            <Text style={styles.handle}>
+              {profile.handle} · {profile.city}
+            </Text>
+          </View>
         </View>
-        <View style={styles.identity}>
-          <Text style={styles.name}>{profile.name}</Text>
-          <Text style={styles.handle}>
-            {profile.handle} · {profile.city}
-          </Text>
+        <View style={styles.profileBottom}>
+          <Tag label={`NÍVEL ${stats.level.level}`} color={palette.gold} />
           <Text style={styles.since}>
             No PaceHub desde {formatShortDate(profile.joinedAt)}
           </Text>
         </View>
-        <Tag label={`NÍVEL ${stats.level.level}`} color={palette.gold} />
       </Card>
 
       <Card>
@@ -294,7 +298,14 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   topBar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   topTitle: { color: palette.text, fontSize: 17, fontWeight: "900" },
-  profile: { flexDirection: "row", alignItems: "center", gap: 14 },
+  profile: { gap: 12 },
+  profileTop: { flexDirection: "row", alignItems: "center", gap: 14 },
+  profileBottom: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
   avatar: {
     width: 64,
     height: 64,
@@ -307,7 +318,7 @@ const styles = StyleSheet.create({
   },
   avatarText: { color: palette.green, fontSize: 21, fontWeight: "900" },
   identity: { flex: 1, gap: 3 },
-  name: { color: palette.text, fontSize: 24, fontWeight: "900", flexShrink: 1 },
+  name: { color: palette.text, fontSize: 22, fontWeight: "900" },
   handle: { color: palette.green, fontSize: 12, fontWeight: "800" },
   since: { color: palette.faint, fontSize: 10 },
   rowBetween: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 },
