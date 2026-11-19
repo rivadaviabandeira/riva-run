@@ -104,6 +104,8 @@ export type RunState = {
   activities: Activity[];
   shoes: Shoe[];
   challenges: Challenge[];
+  rewards: Reward[];
+  products: Product[];
   redemptions: Redemption[];
   purchases: Purchase[];
   strava: StravaState;

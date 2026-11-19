@@ -2,14 +2,15 @@ import { StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Card, Kicker, Muted, Screen, SectionTitle, palette } from "../../components/ui";
 import { useData } from "../../lib/data/provider";
-import { DEMO_RIVALS } from "../../lib/data/demo";
 import { formatDecimal, rankBand } from "../../lib/domain";
 
 export default function RankingScreen() {
-  const { profile, stats, shoes } = useData();
+  const { profile, stats, shoes, rivals } = useData();
 
+  // No modo demonstração o ranking traz adversários fictícios; com conta real
+  // ainda não há pontos de outros participantes expostos, então aparece só você.
   const entries = [
-    ...DEMO_RIVALS,
+    ...rivals,
     {
       name: profile.name,
       points: Math.round(stats.lifetimePP),
@@ -119,7 +120,11 @@ export default function RankingScreen() {
           </Muted>
         </View>
       </Card>
-      <Muted>Participantes adversários são fictícios; sua pontuação é calculada pelos dados do app.</Muted>
+      <Muted>
+        {rivals.length > 0
+          ? "Participantes adversários são fictícios; sua pontuação é calculada pelos dados do app."
+          : "A classificação real com outros corredores entra quando a pontuação pública estiver disponível. Por enquanto, aparece só você."}
+      </Muted>
     </Screen>
   );
 }

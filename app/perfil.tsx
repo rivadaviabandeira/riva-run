@@ -15,6 +15,7 @@ import {
   palette,
 } from "../components/ui";
 import { useData } from "../lib/data/provider";
+import { useAuth } from "../lib/auth/provider";
 import {
   formatDecimal,
   formatPace,
@@ -24,7 +25,8 @@ import {
 } from "../lib/domain";
 
 export default function ProfileScreen() {
-  const { profile, stats, strava, steward, activities, shoes, actions } = useData();
+  const { profile, stats, strava, steward, activities, shoes, actions, mode } = useData();
+  const { user, signOut } = useAuth();
 
   const pending = activities.filter((activity) => activity.status === "pending");
   const unassigned = activities.filter(
@@ -58,7 +60,7 @@ export default function ProfileScreen() {
           <View style={styles.identity}>
             <Text style={styles.name}>{profile.name}</Text>
             <Text style={styles.handle}>
-              {profile.handle} · {profile.city}
+              {profile.city ? `${profile.handle} · ${profile.city}` : profile.handle}
             </Text>
           </View>
         </View>
@@ -142,6 +144,12 @@ export default function ProfileScreen() {
             </Muted>
           </View>
         </View>
+        {mode !== "demo" ? (
+          <Muted>
+            A conexão com o Strava é feita no servidor, pela equipe PaceHub. As corridas importadas
+            aparecem no histórico assim que a sincronização rodar.
+          </Muted>
+        ) : (
         <View style={styles.buttons}>
           {strava.connected ? (
             <>
@@ -173,6 +181,7 @@ export default function ProfileScreen() {
             />
           )}
         </View>
+        )}
         <Muted>
           Tokens do Strava ficam somente no servidor. O app nunca recebe nem armazena o refresh token.
         </Muted>
@@ -287,10 +296,38 @@ export default function ProfileScreen() {
         </Card>
       ) : null}
 
+      <SectionTitle>Conta</SectionTitle>
       <Card>
-        <ActionButton label="Restaurar dados de demonstração" variant="ghost" onPress={actions.resetDemo} />
-        <Muted>Todos os dados deste protótipo são locais e voltam ao estado inicial ao restaurar.</Muted>
+        <View style={styles.row}>
+          <IconBadge icon="person-circle-outline" color={palette.blue} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.cardTitle}>{user?.email ?? "Modo demonstração"}</Text>
+            <Muted>
+              {mode === "demo"
+                ? "Dados locais de demonstração — nada é enviado ao servidor."
+                : "Perfil, corridas e pontos carregados do Supabase com a sua conta."}
+            </Muted>
+          </View>
+        </View>
+        <ActionButton label="Sair da conta" variant="ghost" icon="log-out-outline" onPress={signOut} />
+        {mode === "demo" ? null : (
+          <Muted>
+            Ações que ainda não têm RPC no banco (entrar em desafio, cadastrar tênis, prescrever
+            treino) valem só nesta sessão.
+          </Muted>
+        )}
       </Card>
+
+      {mode === "demo" ? (
+        <Card>
+          <ActionButton
+            label="Restaurar dados de demonstração"
+            variant="ghost"
+            onPress={actions.resetDemo}
+          />
+          <Muted>Todos os dados deste protótipo são locais e voltam ao estado inicial ao restaurar.</Muted>
+        </Card>
+      ) : null}
     </Screen>
   );
 }

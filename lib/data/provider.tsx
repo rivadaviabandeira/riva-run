@@ -2,6 +2,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -42,7 +43,9 @@ import {
 } from "../domain";
 import { createProductOrderOnServer, isUuid, redeemRewardOnServer, storeBackendEnabled } from "../api/store";
 import { auditData, shoeKm, type StewardReport } from "../steward";
-import { DEMO_PRODUCTS, DEMO_REWARDS, DEMO_RIVALS, SYNC_POOL, buildDemoState } from "./demo";
+import { DEMO_RIVALS, SYNC_POOL, buildDemoState } from "./demo";
+import { loadRemoteRunState } from "./remote";
+import { useAuth } from "../auth/provider";
 import type {
   Activity,
   Athlete,
@@ -61,6 +64,9 @@ import { markTrainingSessionDoneOnServer, trainingBackendEnabled } from "../api/
 
 export type ActionResult = { ok: boolean; message: string };
 export type SyncResult = ActionResult & { imported: number; duplicates: number };
+
+/** `demo` usa dados fictícios locais; `remote` usa o banco do usuário autenticado. */
+export type DataMode = "demo" | "remote";
 
 export type ChallengeView = Challenge & ChallengeProgress;
 
@@ -129,6 +135,11 @@ type DataContextValue = {
   steward: StewardReport;
   stats: Stats;
   rivals: LeaderboardEntry[];
+  mode: DataMode;
+  /** Falso enquanto os dados do usuário autenticado ainda estão sendo carregados. */
+  ready: boolean;
+  dataError: string | null;
+  reloadData: () => void;
   discountFor: (priceBRL: number) => Discount;
   actions: Actions;
 };
@@ -138,8 +149,58 @@ const DataContext = createContext<DataContextValue | null>(null);
 const DEMO_STEWARD = (state: RunState): StewardReport => auditData(state.activities, state.shoes);
 
 export function DataProvider({ children }: { children: ReactNode }) {
+  const { status, user } = useAuth();
   const [state, setState] = useState<RunState>(() => buildDemoState());
   const [steward, setSteward] = useState<StewardReport>(() => DEMO_STEWARD(buildDemoState()));
+  const [mode, setMode] = useState<DataMode>("demo");
+  const [ready, setReady] = useState(false);
+  const [dataError, setDataError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  const isDemo = mode === "demo";
+  const reloadData = useCallback(() => setReloadKey((key) => key + 1), []);
+  const signedInUserId = status === "signedIn" ? user?.id ?? null : null;
+  const signedInUser = status === "signedIn" ? user : null;
+
+  // Modo demonstração monta o estado local; com sessão, o estado vem do banco.
+  useEffect(() => {
+    let cancelled = false;
+    setDataError(null);
+
+    if (status === "demo") {
+      const fresh = buildDemoState();
+      setState(fresh);
+      setSteward(DEMO_STEWARD(fresh));
+      setMode("demo");
+      setReady(true);
+      return;
+    }
+
+    if (signedInUser) {
+      setReady(false);
+      loadRemoteRunState(signedInUser)
+        .then((remote) => {
+          if (cancelled) return;
+          setState(remote);
+          setSteward(auditData(remote.activities, remote.shoes));
+          setMode("remote");
+          setReady(true);
+        })
+        .catch((error: unknown) => {
+          if (cancelled) return;
+          setDataError(
+            error instanceof Error ? error.message : "Não foi possível carregar seus dados.",
+          );
+          setReady(false);
+        });
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setReady(false);
+    // `signedInUserId` identifica o usuário; o objeto `user` muda a cada refresh de token.
+  }, [status, signedInUserId, reloadKey]);
 
   const challengeViews = useMemo<ChallengeView[]>(
     () =>
@@ -204,6 +265,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
   );
 
   const connectStrava = useCallback((): ActionResult => {
+    if (!isDemo) {
+      return {
+        ok: false,
+        message: "A conexão com o Strava é feita pelo servidor e ainda não está liberada nesta versão.",
+      };
+    }
     setState((current) => ({
       ...current,
       strava: {
@@ -213,9 +280,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
       },
     }));
     return { ok: true, message: "Strava conectado. A sincronização do servidor está liberada." };
-  }, []);
+  }, [isDemo]);
 
   const disconnectStrava = useCallback((): ActionResult => {
+    if (!isDemo) {
+      return { ok: false, message: "A conexão com o Strava é gerenciada no servidor pelo treinador." };
+    }
     setState((current) => ({
       ...current,
       strava: { connected: false, athleteName: null, lastSyncAt: null },
@@ -224,9 +294,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
       ok: true,
       message: "Strava desconectado. As atividades já importadas continuam no histórico.",
     };
-  }, []);
+  }, [isDemo]);
 
   const syncStrava = useCallback((): SyncResult => {
+    if (!isDemo) {
+      return {
+        ok: false,
+        imported: 0,
+        duplicates: 0,
+        message:
+          "A sincronização com o Strava roda no servidor. As corridas aparecem aqui após a importação.",
+      };
+    }
     if (!state.strava.connected) {
       return {
         ok: false,
@@ -277,7 +356,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       duplicates: 0,
       message: `${next.title} (${formatDecimal(next.distanceKm)} km) importada. O agente de dados ainda precisa validar.`,
     };
-  }, [state.activities, state.strava]);
+  }, [state.activities, state.strava, isDemo]);
 
   const addShoe = useCallback(
     (brand: string, model: string): ActionResult => {
@@ -324,7 +403,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const redeemReward = useCallback(
     async (rewardId: string): Promise<ActionResult> => {
-      const reward = DEMO_REWARDS.find((item) => item.id === rewardId);
+      const reward = state.rewards.find((item) => item.id === rewardId);
       if (!reward) return { ok: false, message: "Recompensa não encontrada." };
 
       // Com backend, quem decide o saldo é o Postgres: nada é debitado localmente
@@ -359,12 +438,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setState((current) => ({ ...current, redemptions: [redemption, ...current.redemptions] }));
       return { ok: true, message: `${reward.name} resgatado por ${reward.costPP} PP.` };
     },
-    [balancePP],
+    [balancePP, state.rewards],
   );
 
   const buyProduct = useCallback(
     async (productId: string): Promise<ActionResult> => {
-      const product = DEMO_PRODUCTS.find((item) => item.id === productId);
+      const product = state.products.find((item) => item.id === productId);
       if (!product) return { ok: false, message: "Produto não encontrado." };
       const discount = ppDiscount(product.priceBRL, balancePP);
 
@@ -400,7 +479,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             : `${product.name} sem desconto (saldo insuficiente para abater o valor).`,
       };
     },
-    [balancePP],
+    [balancePP, state.products],
   );
 
   const buildWeekPlanFor = useCallback(
@@ -605,10 +684,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [state.activities, state.shoes]);
 
   const resetDemo = useCallback(() => {
+    // Com conta real o estado vem do banco; não há o que "restaurar" localmente.
+    if (!isDemo) return;
     const fresh = buildDemoState();
     setState(fresh);
     setSteward(DEMO_STEWARD(fresh));
-  }, []);
+  }, [isDemo]);
 
   const value = useMemo<DataContextValue>(
     () => ({
@@ -617,8 +698,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       shoes: state.shoes,
       challenges: state.challenges,
       challengeViews,
-      rewards: DEMO_REWARDS,
-      products: DEMO_PRODUCTS,
+      rewards: state.rewards,
+      products: state.products,
       redemptions: state.redemptions,
       purchases: state.purchases,
       strava: state.strava,
@@ -626,7 +707,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
       trainingSessions: state.sessions,
       steward,
       stats,
-      rivals: DEMO_RIVALS,
+      // Ranking real depende de pontos de outros usuários, que ainda não são públicos.
+      rivals: isDemo ? DEMO_RIVALS : [],
+      mode,
+      ready,
+      dataError,
+      reloadData,
       discountFor,
       actions: {
         connectStrava,
@@ -651,6 +737,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
       challengeViews,
       steward,
       stats,
+      mode,
+      isDemo,
+      ready,
+      dataError,
+      reloadData,
       discountFor,
       connectStrava,
       disconnectStrava,

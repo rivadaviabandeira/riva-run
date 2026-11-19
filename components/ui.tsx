@@ -100,6 +100,7 @@ export function ActionButton({
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={label}
       onPress={onPress}
       disabled={disabled}
       style={({ pressed }) => [

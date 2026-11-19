@@ -307,6 +307,8 @@ export function buildDemoState(now: Date = new Date()): RunState {
     activities: [...activities, pendingActivity(now)],
     shoes: DEMO_SHOES,
     challenges,
+    rewards: DEMO_REWARDS,
+    products: DEMO_PRODUCTS,
     redemptions: [],
     purchases: [],
     strava: {
