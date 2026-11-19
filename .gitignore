@@ -17,3 +17,6 @@ npm-debug.log*
 .env
 .env.local
 .env.*.local
+
+# Screenshots e artefatos locais de revisão
+artifacts/

@@ -88,6 +88,7 @@ export default function HomeScreen() {
             <Text style={styles.avatarText}>{initials(profile.name)}</Text>
           </View>
           <Text style={styles.profileLabel}>PERFIL</Text>
+          <Ionicons name="chevron-forward" size={12} color={palette.faint} />
         </Pressable>
       </View>
 
@@ -287,24 +288,35 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   title: { color: palette.text, fontSize: 32, fontWeight: "900", marginTop: 2 },
-  profileButton: { alignItems: "center", gap: 4 },
+  profileButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    paddingLeft: 4,
+    paddingRight: 9,
+    paddingVertical: 4,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#3A4A33",
+    backgroundColor: palette.card,
+  },
   profileLabel: {
-    color: palette.faint,
-    fontSize: 8,
+    color: palette.green,
+    fontSize: 9,
     fontWeight: "900",
-    letterSpacing: 0.9,
+    letterSpacing: 1,
   },
   avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 15,
+    width: 32,
+    height: 32,
+    borderRadius: 12,
     backgroundColor: "#263522",
     borderWidth: 1,
     borderColor: "#3A4A33",
     alignItems: "center",
     justifyContent: "center",
   },
-  avatarText: { color: palette.green, fontWeight: "900", fontSize: 14 },
+  avatarText: { color: palette.green, fontWeight: "900", fontSize: 12 },
   hero: { backgroundColor: palette.cardAlt, borderColor: palette.lineStrong },
   heroEyebrow: { color: "#C3D0C7", fontSize: 9, fontWeight: "900", letterSpacing: 1.4 },
   pp: { color: palette.text, fontSize: 42, fontWeight: "900", marginTop: 2 },
