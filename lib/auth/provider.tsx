@@ -20,7 +20,12 @@ import { getSupabaseClient, isSupabaseConfigured } from "../supabase";
  */
 export type AuthStatus = "loading" | "unconfigured" | "signedOut" | "signedIn" | "demo";
 
-export type AuthResult = { ok: boolean; message: string };
+export type AuthResult = {
+  ok: boolean;
+  message: string;
+  /** A conta existe, mas só entra depois de confirmar o e-mail. */
+  needsEmailConfirmation?: boolean;
+};
 
 type AuthContextValue = {
   status: AuthStatus;
@@ -29,6 +34,7 @@ type AuthContextValue = {
   configured: boolean;
   signIn: (email: string, password: string) => Promise<AuthResult>;
   signUp: (name: string, email: string, password: string) => Promise<AuthResult>;
+  resendConfirmation: (email: string) => Promise<AuthResult>;
   signOut: () => Promise<void>;
   enterDemo: () => void;
 };
@@ -98,8 +104,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email: email.trim(),
         password,
       });
-      if (error) return { ok: false, message: authErrorMessage(error.message, "Não foi possível entrar.") };
-      if (!data.session) return { ok: false, message: "Confirme seu e-mail antes de entrar." };
+      if (error) {
+        return {
+          ok: false,
+          message: authErrorMessage(error.message, "Não foi possível entrar."),
+          // Sem confirmar o e-mail não há sessão: a tela mostra como reenviar o link.
+          needsEmailConfirmation: error.message.toLowerCase().includes("email not confirmed"),
+        };
+      }
+      if (!data.session) {
+        return {
+          ok: false,
+          message: "Confirme seu e-mail antes de entrar.",
+          needsEmailConfirmation: true,
+        };
+      }
       setSession(data.session);
       setStatus("signedIn");
       return { ok: true, message: "Sessão iniciada." };
@@ -120,11 +139,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       if (error) return { ok: false, message: authErrorMessage(error.message, "Não foi possível criar a conta.") };
       if (!data.session) {
-        return { ok: true, message: "Conta criada. Confirme o e-mail para entrar." };
+        // O projeto exige confirmação de e-mail: a conta existe, mas ainda não entra.
+        return {
+          ok: true,
+          message: "Conta criada. Confirme o e-mail para entrar.",
+          needsEmailConfirmation: true,
+        };
       }
       setSession(data.session);
       setStatus("signedIn");
       return { ok: true, message: "Conta criada." };
+    },
+    [configured],
+  );
+
+  const resendConfirmation = useCallback(
+    async (email: string): Promise<AuthResult> => {
+      if (!configured) {
+        return { ok: false, message: "Supabase não configurado neste ambiente." };
+      }
+      const { error } = await getSupabaseClient().auth.resend({ type: "signup", email: email.trim() });
+      if (error) {
+        return {
+          ok: false,
+          message: authErrorMessage(error.message, "Não foi possível reenviar o e-mail."),
+        };
+      }
+      return { ok: true, message: "E-mail reenviado. Confira a caixa de entrada e o spam." };
     },
     [configured],
   );
@@ -154,10 +195,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       configured,
       signIn,
       signUp,
+      resendConfirmation,
       signOut,
       enterDemo,
     }),
-    [status, session, configured, signIn, signUp, signOut, enterDemo],
+    [status, session, configured, signIn, signUp, resendConfirmation, signOut, enterDemo],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

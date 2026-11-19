@@ -6,6 +6,7 @@ O backend do MVP usa somente o Strava como integração externa de atividades.
 - `migrations/001_initial_schema.sql`: tabelas, limite de cinco tênis, perfil inicial e políticas RLS.
 - `migrations/002_gamification.sql`: livro-razão de PP, conquistas, PaceStore, pendências de dados e o recálculo idempotente de progresso.
 - `migrations/003_pacestore_rpcs.sql`: `redeem_reward` e `create_product_order` (SECURITY DEFINER), que debitam PP de forma atômica, recusam saldo insuficiente e respeitam o teto de 20% de desconto.
+- `migrations/006_strava_status.sql`: view `strava_connection_status`, que informa ao app se a conta tem Strava conectado (atleta, escopos e data) sem expor `access_token` nem `refresh_token`.
 - `migrations/004_training_plans.sql`: `coach_athletes`, `training_plans` e `training_sessions`, com o atleta lendo o próprio plano e a escrita restrita ao treinador vinculado (ou admin), além dos triggers que garantem a autoria das sessões.
 - `functions/data-steward/index.ts`: agente de dados agendado (validação, duplicidades, pendências e recálculo).
 - `functions/strava-auth/index.ts`: inicia OAuth e salva tokens no servidor.
@@ -26,6 +27,12 @@ O backend do MVP usa somente o Strava como integração externa de atividades.
    - `STEWARD_SECRET` (segredo aleatório do agente de dados, header `x-steward-secret`)
    - `APP_REDIRECT_URI` (deep link ou URL de retorno do app, opcional)
    - `APP_ORIGIN` (origem permitida para CORS; configure explicitamente em produção)
+
+   `APP_REDIRECT_URI` é para onde o callback do Strava devolve o usuário depois de gravar a conexão:
+   - app web: a URL do app (ex.: `https://app.pacehub.com.br/`) — o app volta com `?strava=connected`;
+   - app nativo: o deep link da build (`pacehub://strava`, ou `exp://…/--/strava` no Expo Go).
+
+   Sem esse secret o callback responde JSON e o app não recebe o resultado.
 3. Registre o callback OAuth e solicite somente os escopos necessários no portal de API do Strava. Para importar corridas, a autorização normalmente precisa incluir `activity:read`; confirme as permissões disponíveis para sua aplicação.
 4. Publique as funções e configure a assinatura de webhook no Strava.
 5. Acione a função `strava-sync` por um agendador/worker seguro, enviando o header `x-riva-sync-secret`. Não chame essa função diretamente do app.

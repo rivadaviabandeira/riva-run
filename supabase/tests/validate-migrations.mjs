@@ -86,9 +86,10 @@ try {
   await db.exec(readMigration("003_pacestore_rpcs.sql"));
   await db.exec(readMigration("004_training_plans.sql"));
   await db.exec(readMigration("005_training_done_rpc.sql"));
-  check("001 + 002 + 003 + 004 + 005 aplicam sem erro", true);
+  await db.exec(readMigration("006_strava_status.sql"));
+  check("001 a 006 aplicam sem erro", true);
 } catch (error) {
-  check("001 + 002 + 003 + 004 aplicam sem erro", false, firstLine(error));
+  check("001 a 006 aplicam sem erro", false, firstLine(error));
   console.error(error);
   process.exit(1);
 }
@@ -116,6 +117,51 @@ await db.exec(`
 `);
 
 check("trigger handle_new_user cria os perfis", (await scalar("select count(*)::int from public.profiles")) === 2);
+
+// ------------------------------------------------------------------ --
+// 006: status da conexão Strava sem expor tokens
+// ------------------------------------------------------------------ --
+await db.exec(`
+  insert into public.strava_connections (user_id, athlete_id, access_token, refresh_token, expires_at, scopes)
+  values ('${USER_A}', 987654, 'access-a', 'refresh-a', now() + interval '6 hours', 'read,activity:read');
+`);
+
+const stravaViewColumns = (
+  await query(
+    `select column_name::text as name
+       from information_schema.columns
+      where table_schema = 'public' and table_name = 'strava_connection_status'`,
+  )
+).map((row) => row.name);
+check(
+  "006 status do Strava expõe apenas campos públicos",
+  stravaViewColumns.length === 4 &&
+    ["athlete_id", "scopes", "connected_at", "updated_at"].every((name) =>
+      stravaViewColumns.includes(name),
+    ),
+  stravaViewColumns.join(", "),
+);
+
+await db.exec(`select set_config('request.jwt.claim.sub', '${USER_A}', false); set role authenticated;`);
+const ownStravaStatus = await query("select athlete_id from public.strava_connection_status");
+check(
+  "006 atleta vê a própria conexão Strava",
+  ownStravaStatus.length === 1 && Number(ownStravaStatus[0].athlete_id) === 987654,
+);
+await db.exec(`select set_config('request.jwt.claim.sub', '${USER_B}', false);`);
+check(
+  "006 outro atleta não vê a conexão alheia",
+  (await query("select athlete_id from public.strava_connection_status")).length === 0,
+);
+await db.exec("reset role; select set_config('request.jwt.claim.sub', '', false);");
+await db.exec("set role anon;");
+await expectError(
+  "006 anon não lê o status do Strava",
+  "select athlete_id from public.strava_connection_status",
+  [],
+  "permission denied",
+);
+await db.exec("reset role;");
 
 const recalc = async (userId = USER_A) => {
   const raw = await scalar("select public.recalculate_user_progress($1) as result", [userId]);

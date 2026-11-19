@@ -5,7 +5,7 @@ import { ActionButton, Card, Kicker, Muted, Screen, palette } from "../component
 import { useAuth } from "../lib/auth/provider";
 
 export default function LoginScreen() {
-  const { signIn, signUp, enterDemo, configured } = useAuth();
+  const { signIn, signUp, resendConfirmation, enterDemo, configured } = useAuth();
 
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
@@ -13,6 +13,23 @@ export default function LoginScreen() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState<{ ok: boolean; message: string } | null>(null);
+  // Conta criada (ou login barrado) esperando a confirmação de e-mail.
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null);
+  const [resending, setResending] = useState(false);
+  const [resendFeedback, setResendFeedback] = useState<{ ok: boolean; message: string } | null>(null);
+
+  const resend = async () => {
+    if (resending || !pendingEmail) return;
+    setResending(true);
+    setResendFeedback(null);
+    try {
+      setResendFeedback(await resendConfirmation(pendingEmail));
+    } catch {
+      setResendFeedback({ ok: false, message: "Não foi possível reenviar agora. Tente de novo." });
+    } finally {
+      setResending(false);
+    }
+  };
 
   const submit = async () => {
     if (busy) return;
@@ -34,6 +51,13 @@ export default function LoginScreen() {
     setBusy(true);
     try {
       const result = creating ? await signUp(name, email, password) : await signIn(email, password);
+      if (result.needsEmailConfirmation) {
+        setPendingEmail(email.trim());
+        setResendFeedback(null);
+        setFeedback(null);
+        return;
+      }
+      setPendingEmail(null);
       setFeedback(result);
     } catch {
       setFeedback({ ok: false, message: "Falha inesperada ao falar com o servidor. Tente de novo." });
@@ -143,11 +167,50 @@ export default function LoginScreen() {
           onPress={() => {
             setCreating((current) => !current);
             setFeedback(null);
+            setPendingEmail(null);
+            setResendFeedback(null);
           }}
         >
           {creating ? "Já tenho conta · ENTRAR" : "Não tenho conta · CRIAR"}
         </Text>
       </Card>
+
+      {pendingEmail ? (
+        <Card style={styles.setup}>
+          <View style={styles.row}>
+            <Ionicons name="mail-unread-outline" size={18} color={palette.gold} />
+            <Text style={styles.setupTitle}>Confirme seu e-mail para entrar</Text>
+          </View>
+          <Muted>
+            Enviamos um link para {pendingEmail}. Abra o link e volte aqui para entrar. Se não
+            chegar em alguns minutos, confira o spam ou reenvie.
+          </Muted>
+          {resendFeedback ? (
+            <View style={styles.feedback}>
+              <Ionicons
+                name={resendFeedback.ok ? "checkmark-circle-outline" : "alert-circle-outline"}
+                size={15}
+                color={resendFeedback.ok ? palette.green : "#FF9C93"}
+              />
+              <Text
+                style={[
+                  styles.feedbackText,
+                  { color: resendFeedback.ok ? palette.green : "#FF9C93" },
+                ]}
+              >
+                {resendFeedback.message}
+              </Text>
+            </View>
+          ) : null}
+          <ActionButton
+            label={resending ? "Reenviando…" : "Reenviar e-mail de confirmação"}
+            icon="send-outline"
+            variant="ghost"
+            onPress={resend}
+            disabled={resending}
+          />
+        </Card>
+      ) : null}
 
       <Muted>
         Sua sessão fica salva no aparelho. O app nunca recebe a chave service_role nem os tokens do

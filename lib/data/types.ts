@@ -82,6 +82,8 @@ export type Purchase = {
 export type StravaState = {
   connected: boolean;
   athleteName: string | null;
+  /** Id do atleta no Strava, quando a conexão real está ativa. */
+  athleteId?: number | null;
   lastSyncAt: string | null;
 };
 

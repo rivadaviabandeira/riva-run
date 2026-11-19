@@ -54,6 +54,7 @@ type TaskRow = {
   points: number;
 };
 type MembershipRow = { challenge_id: string };
+type StravaStatusRow = { athlete_id: number; updated_at: string };
 type RewardRow = { id: string; name: string; description: string; category: string; cost_pp: number };
 type ProductRow = {
   id: string;
@@ -158,6 +159,7 @@ export async function loadRemoteRunState(user: User): Promise<RunState> {
     redemptionsResult,
     ordersResult,
     sessionsResult,
+    stravaResult,
   ] = await Promise.all([
     supabase.from("profiles").select("id, display_name, created_at").eq("id", user.id).maybeSingle(),
     supabase
@@ -192,6 +194,11 @@ export async function loadRemoteRunState(user: User): Promise<RunState> {
       .select("id, athlete_id, scheduled_date, type_id, distance_km, target_pace_s, note, done")
       .eq("athlete_id", user.id)
       .order("scheduled_date", { ascending: true }),
+    // Só o status: a tabela strava_connections continua fechada para o cliente.
+    supabase
+      .from("strava_connection_status")
+      .select("athlete_id, updated_at")
+      .maybeSingle(),
   ]);
 
   const firstError =
@@ -205,13 +212,15 @@ export async function loadRemoteRunState(user: User): Promise<RunState> {
     productsResult.error ??
     redemptionsResult.error ??
     ordersResult.error ??
-    sessionsResult.error;
+    sessionsResult.error ??
+    stravaResult.error;
 
   if (firstError) {
     throw new Error(`Não foi possível carregar seus dados: ${firstError.message}`);
   }
 
   const profileRow = (profileResult.data ?? null) as ProfileRow | null;
+  const stravaRow = (stravaResult.data ?? null) as StravaStatusRow | null;
   const displayName =
     profileRow?.display_name?.trim() ||
     (user.user_metadata?.display_name as string | undefined)?.trim() ||
@@ -321,8 +330,15 @@ export async function loadRemoteRunState(user: User): Promise<RunState> {
     products,
     redemptions,
     purchases,
-    // Tokens do Strava são server-only: o app não lê strava_connections.
-    strava: { connected: false, athleteName: null, lastSyncAt: null },
+    // Tokens do Strava são server-only: o app lê apenas a view de status.
+    strava: stravaRow
+      ? {
+          connected: true,
+          athleteName: null,
+          athleteId: Number(stravaRow.athlete_id),
+          lastSyncAt: null,
+        }
+      : { connected: false, athleteName: null, athleteId: null, lastSyncAt: null },
     athletes: [buildAthlete(user, displayName, activities)],
     sessions,
   };

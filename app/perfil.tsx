@@ -1,4 +1,5 @@
-import { Alert, StyleSheet, Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import { Alert, Platform, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import {
@@ -16,6 +17,7 @@ import {
 } from "../components/ui";
 import { useData } from "../lib/data/provider";
 import { useAuth } from "../lib/auth/provider";
+import { captureWebStravaReturn, consumeStravaReturn, startStravaConnect } from "../lib/strava";
 import {
   formatDecimal,
   formatPace,
@@ -25,8 +27,33 @@ import {
 } from "../lib/domain";
 
 export default function ProfileScreen() {
-  const { profile, stats, strava, steward, activities, shoes, actions, mode } = useData();
+  const { profile, stats, strava, steward, activities, shoes, actions, mode, reloadData } = useData();
   const { user, signOut } = useAuth();
+
+  const [stravaNotice, setStravaNotice] = useState<{ ok: boolean; message: string } | null>(null);
+  const [stravaBusy, setStravaBusy] = useState(false);
+
+  // O callback do OAuth volta para o app com ?strava=connected: mostra o resultado
+  // e recarrega para refletir a conexão que a Edge Function gravou.
+  useEffect(() => {
+    captureWebStravaReturn();
+    const pending = consumeStravaReturn();
+    if (!pending) return;
+    setStravaNotice(pending);
+    if (pending.ok) void reloadData();
+  }, [reloadData]);
+
+  const connectStravaAccount = async () => {
+    if (stravaBusy) return;
+    setStravaBusy(true);
+    setStravaNotice(null);
+    const result = await startStravaConnect();
+    setStravaBusy(false);
+    // No web a aba saiu para o Strava; o resultado volta pelo efeito acima.
+    if (result.ok && Platform.OS === "web") return;
+    setStravaNotice(result);
+    if (result.ok) await reloadData();
+  };
 
   const pending = activities.filter((activity) => activity.status === "pending");
   const unassigned = activities.filter(
@@ -139,16 +166,48 @@ export default function ProfileScreen() {
             <Text style={styles.cardTitle}>{strava.connected ? "Conectado" : "Desconectado"}</Text>
             <Muted>
               {strava.connected
-                ? `Atleta ${strava.athleteName ?? "—"} · sincronizado ${formatRelative(strava.lastSyncAt)}`
+                ? strava.athleteName
+                  ? `Atleta ${strava.athleteName} · sincronizado ${formatRelative(strava.lastSyncAt)}`
+                  : `Atleta ${strava.athleteId ?? "—"} · corridas importadas pelo servidor`
                 : "Sem conexão ativa. Nenhuma atividade nova é importada."}
             </Muted>
           </View>
         </View>
         {mode !== "demo" ? (
-          <Muted>
-            A conexão com o Strava é feita no servidor, pela equipe PaceHub. As corridas importadas
-            aparecem no histórico assim que a sincronização rodar.
-          </Muted>
+          <View style={styles.buttons}>
+            {stravaNotice ? (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 7 }}>
+                <Ionicons
+                  name={stravaNotice.ok ? "checkmark-circle-outline" : "alert-circle-outline"}
+                  size={15}
+                  color={stravaNotice.ok ? palette.green : "#FF9C93"}
+                />
+                <Text
+                  style={{
+                    flex: 1,
+                    fontSize: 10,
+                    fontWeight: "800",
+                    lineHeight: 15,
+                    color: stravaNotice.ok ? palette.green : "#FF9C93",
+                  }}
+                >
+                  {stravaNotice.message}
+                </Text>
+              </View>
+            ) : null}
+            <ActionButton
+              label={
+                stravaBusy
+                  ? "Abrindo o Strava…"
+                  : strava.connected
+                    ? "Reconectar Strava"
+                    : "Conectar Strava"
+              }
+              icon="link-outline"
+              onPress={connectStravaAccount}
+              disabled={stravaBusy}
+            />
+          </View>
         ) : (
         <View style={styles.buttons}>
           {strava.connected ? (

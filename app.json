@@ -7,10 +7,22 @@
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
-    "plugins": ["expo-router"],
-    "experiments": {"typedRoutes": true},
-    "ios": {"supportsTablet": true, "bundleIdentifier": "br.com.pacehub.app"},
-    "android": {"package": "br.com.pacehub.app"},
-    "web": {"bundler": "metro"}
+    "plugins": [
+      "expo-router",
+      "expo-web-browser"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "br.com.pacehub.app"
+    },
+    "android": {
+      "package": "br.com.pacehub.app"
+    },
+    "web": {
+      "bundler": "metro"
+    }
   }
 }
