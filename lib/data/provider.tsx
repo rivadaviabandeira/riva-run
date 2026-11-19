@@ -581,12 +581,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const reviewActivity = useCallback(
     (activityId: string, decision: "validated" | "rejected"): ActionResult => {
-      setState((current) => ({
-        ...current,
-        activities: current.activities.map((activity) =>
-          activity.id === activityId ? { ...activity, status: decision } : activity,
-        ),
-      }));
+      const activities = state.activities.map((activity) =>
+        activity.id === activityId ? { ...activity, status: decision } : activity,
+      );
+      setState((current) => ({ ...current, activities }));
+      // O card do agente reflete a decisão na hora, sem esperar a próxima auditoria manual.
+      setSteward(auditData(activities, state.shoes));
       return {
         ok: true,
         message:
@@ -595,7 +595,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             : "Atividade rejeitada e removida da pontuação.",
       };
     },
-    [],
+    [state.activities, state.shoes],
   );
 
   const runStewardAudit = useCallback((): StewardReport => {

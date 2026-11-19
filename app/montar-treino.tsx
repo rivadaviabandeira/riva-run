@@ -95,9 +95,13 @@ export default function BuildSessionScreen() {
       note: noteText,
     });
 
-    Alert.alert(result.ok ? "Treino prescrito" : "Não foi possível salvar", result.message, [
-      { text: "OK", onPress: () => result.ok && router.back() },
-    ]);
+    if (!result.ok) {
+      Alert.alert("Não foi possível salvar", result.message);
+      return;
+    }
+    // Fecha a tela antes do aviso: no web o Alert é um no-op e o callback nunca rodaria.
+    router.back();
+    Alert.alert("Treino prescrito", result.message);
   };
 
   return (
