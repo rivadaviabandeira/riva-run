@@ -40,6 +40,7 @@ export default function ChallengesScreen() {
               key={item.id}
               accessibilityRole="button"
               accessibilityState={{ selected: active }}
+              accessibilityLabel={`${item.label}, ${count} ${count === 1 ? "desafio" : "desafios"}`}
               onPress={() => setTab(item.id)}
               style={[styles.tab, active && styles.tabActive]}
             >
