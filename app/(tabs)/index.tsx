@@ -47,7 +47,10 @@ export default function HomeScreen() {
     athletes,
     trainingSessions,
     actions,
+    mode,
   } = useData();
+
+  const isDemo = mode === "demo";
 
   const recent = [...activities]
     .filter((activity) => activity.status === "validated")
@@ -220,18 +223,23 @@ export default function HomeScreen() {
           <View style={{ flex: 1 }}>
             <Text style={styles.cardTitle}>Strava</Text>
             <Muted>
-              {strava.connected
-                ? `Conectado como ${strava.athleteName ?? profile.name} · última sincronização ${formatRelative(strava.lastSyncAt)}`
-                : "Conecte sua conta para importar as corridas automaticamente."}
+              {!isDemo
+                ? "A importação roda no servidor. As corridas novas aparecem aqui assim que a sincronização acontecer."
+                : strava.connected
+                  ? `Conectado como ${strava.athleteName ?? profile.name} · última sincronização ${formatRelative(strava.lastSyncAt)}`
+                  : "Conecte sua conta para importar as corridas automaticamente."}
             </Muted>
           </View>
         </View>
         <View style={styles.actionsRow}>
-          <ActionButton
-            label={strava.connected ? "Sincronizar agora" : "Conectar Strava"}
-            icon="sync-outline"
-            onPress={sync}
-          />
+          {/* Com conta real quem sincroniza é o servidor: não há botão que funcione aqui. */}
+          {isDemo ? (
+            <ActionButton
+              label={strava.connected ? "Sincronizar agora" : "Conectar Strava"}
+              icon="sync-outline"
+              onPress={sync}
+            />
+          ) : null}
           <ActionButton
             label="Perfil e conexões"
             variant="ghost"
@@ -279,7 +287,9 @@ export default function HomeScreen() {
       </Card>
 
       <Text style={styles.footnote}>
-        Modo demonstração · dados locais, sem sincronização real com o Strava.
+        {isDemo
+          ? "Modo demonstração · dados locais, sem sincronização real com o Strava."
+          : "Sua conta PaceHub · corridas, pontos e plano vindos do servidor."}
       </Text>
     </Screen>
   );
